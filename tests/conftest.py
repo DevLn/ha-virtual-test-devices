@@ -35,12 +35,28 @@ class FakeConfigEntries:
 
     def __init__(self):
         self.reloads = 0
+        self.entries = []
+        # Platforms that refuse to unload: False for "reported failure",
+        # ValueError for the one HA actually raises ("never loaded").
+        self.unload_returns_false = set()
+        self.unload_raises = set()
+        self.unloaded = []
 
     async def async_reload(self, entry_id):
         self.reloads += 1
         # Yield, so a reload genuinely interleaves with other waiting callers —
         # without this the race being tested cannot occur.
         await asyncio.sleep(0)
+
+    def async_entries(self, domain):
+        return list(self.entries)
+
+    async def async_forward_entry_unload(self, entry, platform):
+        self.unloaded.append(platform)
+        await asyncio.sleep(0)
+        if platform in self.unload_raises:
+            raise ValueError("Config entry was never loaded!")
+        return platform not in self.unload_returns_false
 
 
 class FakeConfig:

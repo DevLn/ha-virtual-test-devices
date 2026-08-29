@@ -33,7 +33,7 @@ import logging
 import voluptuous as vol
 
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import homeassistant.helpers.config_validation as cv
 
 from .const import COMPONENT_DOMAIN, ATTR_GROUP_NAME, ATTR_FILE_NAME
@@ -143,7 +143,20 @@ async def _async_remove_device(hass: HomeAssistant, call) -> None:
     name = call.data[CONF_DEVICE_NAME]
 
     def _drop(devices):
-        devices.pop(name, None)
+        # A NO-OP MUST NOT REPORT SUCCESS. This used to pop-with-default, so
+        # removing a device that was not in this group returned success and did
+        # nothing. With more than one group that is easy to hit — omit
+        # `group_name` and the first group is searched, not the one holding the
+        # device — and a bench stayed full of devices somebody believed they had
+        # deleted. Raising here also aborts before the file is written.
+        if name not in devices:
+            group = entry.data.get(ATTR_GROUP_NAME)
+            known = ", ".join(sorted(devices)) or "nothing"
+            raise ServiceValidationError(
+                f"virtual: group '{group}' has no device called '{name}'. It "
+                f"holds: {known}. If the device is in a different group, pass "
+                f"group_name.")
+        devices.pop(name)
 
     await _mutate_and_reload(hass, entry, f"removed test device '{name}'", _drop)
 

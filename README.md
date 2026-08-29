@@ -118,7 +118,7 @@ Everything is a normal Home Assistant action, so it all works from
 | `virtual.create_device` | create a device from an explicit list of entities |
 | `virtual.remove_device` | remove one |
 | `virtual.set` | set a sensor's value |
-| `virtual.set_available` | mark a device available or unavailable |
+| `virtual.set_available` | mark a device available or unavailable — the field is `value: true/false`, **not** `available:` |
 | `virtual.fire_event` | fire a button / scene event |
 | `virtual.turn_on` / `turn_off` / `toggle` / `move` | drive a device directly |
 

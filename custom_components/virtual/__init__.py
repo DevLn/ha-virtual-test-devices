@@ -23,7 +23,7 @@ from homeassistant.core import (
     HomeAssistant,
     callback
 )
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ServiceValidationError
 
 from .const import *
 from .cfg import BlendedCfg, UpgradeCfg
@@ -221,17 +221,42 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    _LOGGER.debug(f"unloading virtual group {entry.data[ATTR_GROUP_NAME]}")
-    # _LOGGER.debug(f"before hass={hass.data[COMPONENT_DOMAIN]}")
-    unload_ok = await hass.config_entries.async_unload_platforms(entry, VIRTUAL_PLATFORMS)
-    if unload_ok:
-        _LOGGER.debug("unloaded ok")
-        hass.data[COMPONENT_DOMAIN].pop(entry.data[ATTR_GROUP_NAME])
-        # _LOGGER.debug(f"ocfg={ocfg}")
-    # _LOGGER.debug(f"after hass={hass.data[COMPONENT_DOMAIN]}")
+    """Unload a config entry.
 
-    return unload_ok
+    ONE PLATFORM MUST NOT BE ABLE TO STRAND THE OTHERS. This used to unload all
+    the platforms as a single batch, which fails as a whole if any one of them
+    fails. Seen on a bench 2026-08-29: a group whose devices were being changed
+    reloaded, notify raised `Config entry was never loaded!`, the batch reported
+    failure, and the entry was left half-down — all 21 entities sat in the
+    registry as `restored`/`unavailable`, and nothing short of a full Home
+    Assistant restart brought them back. Every device-driven test on that bench
+    silently became meaningless, which is indistinguishable from a compiler bug.
+
+    So each platform is unloaded on its own and a failure is logged and stepped
+    over. Reporting success here is deliberate: it lets Home Assistant carry on
+    and set the entry up again, which is what actually returns the devices. A
+    platform that would not unload is a warning in the log, not a dead bench.
+    """
+    group_name = entry.data[ATTR_GROUP_NAME]
+    _LOGGER.debug(f"unloading virtual group {group_name}")
+
+    results = await asyncio.gather(
+        *(hass.config_entries.async_forward_entry_unload(entry, platform)
+          for platform in VIRTUAL_PLATFORMS),
+        return_exceptions=True
+    )
+    for platform, result in zip(VIRTUAL_PLATFORMS, results):
+        if result is not True:
+            _LOGGER.warning(
+                "virtual: %s did not unload cleanly (%s) — continuing so the "
+                "rest of the group still comes back", platform, result)
+
+    # Drop our own copy whatever happened, and tolerate it already being gone:
+    # an unguarded pop here raised KeyError on a second unload, which is another
+    # way the whole entry used to die.
+    hass.data[COMPONENT_DOMAIN].pop(group_name, None)
+
+    return True
 
 
 def get_entity_configs(hass, group_name, domain):
@@ -239,13 +264,25 @@ def get_entity_configs(hass, group_name, domain):
 
 
 def get_entity_from_domain(hass, domain, entity_id):
+    """Find a live entity, or say plainly why it is not there.
+
+    ServiceValidationError rather than HomeAssistantError: this is a bad request,
+    not a crash, and Home Assistant reports the two differently — the first as a
+    one-line message, the second as a 500 with a full traceback. A missing entity
+    used to read like the integration had fallen over when the entity had simply
+    never been provided, which sent a bench session hunting the wrong bug.
+    """
     component = hass.data.get(domain)
     if component is None:
-        raise HomeAssistantError("{} component not set up".format(domain))
+        raise ServiceValidationError(
+            f"virtual: no {domain} entities exist, so {entity_id} cannot be driven")
 
     entity = component.get_entity(entity_id)
     if entity is None:
-        raise HomeAssistantError("{} not found".format(entity_id))
+        raise ServiceValidationError(
+            f"virtual: {entity_id} is not currently provided by this integration. "
+            "It may still be in the entity registry from an earlier run — check "
+            "that the Virtual Test Devices entry is loaded.")
 
     return entity
 

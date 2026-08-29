@@ -56,6 +56,12 @@ DEFAULT_FEATURES = (
     | MediaPlayerEntityFeature.VOLUME_MUTE
     | MediaPlayerEntityFeature.TURN_ON
     | MediaPlayerEntityFeature.TURN_OFF
+    # PLAY_MEDIA is how anything is spoken on a speaker, so a test speaker that
+    # cannot be sent audio is a trap: a cloned speaker carried it and a
+    # hand-built one did not, which produced at least two wrong "the automation
+    # is broken" conclusions before anyone checked the speaker. async_play_media
+    # below has always been implemented — it simply was not advertised.
+    | MediaPlayerEntityFeature.PLAY_MEDIA
 )
 
 BASE_SCHEMA = virtual_schema(DEFAULT_MEDIA_VALUE, {
