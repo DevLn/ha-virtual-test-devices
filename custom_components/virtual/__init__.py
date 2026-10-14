@@ -301,13 +301,18 @@ async def _async_get_or_create_virtual_device_in_registry(
         hass: HomeAssistant, entry: ConfigEntry, device
 ) -> None:
     registry = dr.async_get(hass)
+    # Metadata from the file's mapping form (cfg._device_block) wins and the
+    # constants are the fallback. `area` is a suggestion HA honours when the
+    # device is first created and ignores afterwards, as for a real device, so
+    # moving one later is done in the UI.
     registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         identifiers={(COMPONENT_DOMAIN, device[ATTR_DEVICE_ID])},
-        manufacturer=COMPONENT_MANUFACTURER,
-        model=COMPONENT_MODEL,
+        manufacturer=device.get("manufacturer", COMPONENT_MANUFACTURER),
+        model=device.get("model", COMPONENT_MODEL),
         name=device[CONF_NAME],
-        sw_version=__version__
+        sw_version=device.get("sw_version", __version__),
+        suggested_area=device.get("area"),
     )
 
 

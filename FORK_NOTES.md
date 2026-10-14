@@ -119,6 +119,21 @@ only when the file no longer lists it. Side effect: the first load after
 upgrading also clears the dead rows left by the duplicate-name bug above. Worth
 carrying upstream.
 
+## A device in the file can say what it is (2026-10-14)
+
+`Name: [entities]` still works; `Name: {manufacturer, model, sw_version, area,
+entities}` also loads and reaches the device registry, so a stand-in's device
+page reads like the real device's. `area` is honoured at creation only — HA's
+own rule, verified in 2026.10.1's device registry: on an existing device,
+`suggested_area` updates a runtime-only attribute and never moves the device.
+One edit to upstream code: `entity.py` now passes `DeviceInfo(identifiers=...)`
+only. It used to repeat manufacturer/model, which would have written the
+constants back over the file's values on every entity add. Safe because the
+device is created with its full details in `__init__` before any platform is
+set up, so behaviour for existing files is unchanged. The file rewriters
+(create, remove, clone) replace or drop whole device values and never look
+inside the others, so a mapping-form device survives them untouched (tested).
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

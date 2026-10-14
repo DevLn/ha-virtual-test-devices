@@ -92,6 +92,28 @@ Removing an entry from the file removes exactly that entity on the next load. A
 device goes only when the file no longer lists it; its other entities are left
 alone. Entries without `entity_id` behave exactly as before.
 
+**Devices that say what they are.** A device in the file is normally
+`Name: [entities]`. It can also be a mapping, so a stand-in's device page reads
+like the real device's instead of "twrecked / virtual":
+
+```yaml
+Kitchen Plug:
+  manufacturer: Shelly
+  model: Plus 1PM
+  sw_version: "1.4.4"
+  area: Kitchen          # applied when the device is first created
+  entities:
+    - platform: switch
+      name: Kitchen Plug
+      entity_id: switch.kitchen_plug
+```
+
+`area` is a suggestion Home Assistant honours when the device is first created
+and ignores afterwards, exactly as it does for real devices, so moving a device
+later is done in the UI. Any key you leave out falls back to what it was before.
+Lists keep working, and `create_device`, `remove_device` and `clone_device`
+leave a mapping-form device exactly as they found it.
+
 ### What cloning will and will not do
 
 It reproduces **shape, not behaviour**: what a device *says it can do*, not how

@@ -85,6 +85,10 @@ class _Rows(dict):
 
     get_devices_for_config_entry_id = get_entries_for_config_entry_id
 
+    def get_entries_for_device_id(self, device_id, include_disabled_entities=False):
+        return [row for row in self.values() if row.device_id == device_id
+                and (include_disabled_entities or not row.disabled)]
+
 
 class FakeEntityRegistry:
     """Just the surface this integration touches, holding plain rows."""
@@ -124,13 +128,42 @@ class FakeDeviceRegistry:
     def async_get(self, device_id):
         return self._devices.get(device_id)
 
+    def async_get_or_create(self, *, config_entry_id, identifiers, **fields):
+        """Create or update by identifiers, keeping every value passed so a test
+        can read back exactly what the integration asked for."""
+        identifiers = set(identifiers)
+        row = next((r for r in self._devices.values() if r.identifiers & identifiers), None)
+        if row is None:
+            row = self.add(fields.pop("name", None), identifiers, config_entry_id)
+        for key, value in fields.items():
+            setattr(row, key, value)
+        return row
+
     def async_remove_device(self, device_id):
         self._devices.pop(device_id)
+
+
+class FakeStates:
+    """hass.states with just get / set / async_all, holding real State objects."""
+
+    def __init__(self):
+        self._states = {}
+
+    def set(self, entity_id, state, attributes=None):
+        from homeassistant.core import State
+        self._states[entity_id] = State(entity_id, state, attributes or {})
+
+    def get(self, entity_id):
+        return self._states.get(entity_id)
+
+    def async_all(self):
+        return list(self._states.values())
 
 
 class FakeHass:
     def __init__(self, config_dir=None):
         self.data = {}
+        self.states = FakeStates()
         self.config_entries = FakeConfigEntries()
         # Only the tests that load a group's config need this.
         self.config = FakeConfig(config_dir) if config_dir else None

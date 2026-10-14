@@ -10,6 +10,7 @@ rather than trusted.
 | `test_file_safety.py` | A failed save destroying the existing device file. The savers used to open the real file in `'w'` (truncating it) and only then serialize, swallowing failures at debug level — one unserialisable value emptied the file and the integration stopped loading. |
 | `test_capability_capture.py` | A clone dropping abilities. The capture list is checked **against Home Assistant's own `capability_attributes`**, so a new HA capability shows up as a failure instead of being silently missed. Also checks every capturable key is declared by its platform's schema, and that nothing but primitives reaches the yaml. |
 | `test_explicit_ids.py` | An entry with an explicit `entity_id` landing on a different id, or a different identity, on a later load. Also the orphan rule: removing one entry removes **that row** and leaves its device and siblings alone, and a name-keyed file with settled meta loads without being rewritten. |
+| `test_device_metadata.py` | The mapping form of a device (`manufacturer`, `model`, `sw_version`, `area`, `entities`) not loading, not reaching the device registry, or being mangled by `create_device` / `remove_device` / `clone_device` rewriting the file. Lists must keep loading exactly as before. |
 
 ## Running them
 
@@ -28,7 +29,7 @@ docker cp tests             ha-test:/config/tests
 docker exec ha-test python -m pytest /config/tests -q
 ```
 
-Expect `64 passed`. There is no `pytest-asyncio` dependency — async cases call
+Expect `69 passed`. There is no `pytest-asyncio` dependency — async cases call
 `asyncio.run` directly, so HA and pytest are all you need. The HA image does not
 ship pytest, so run `docker exec ha-test pip install pytest` once. On Windows
 under Git Bash, prefix the docker commands with `MSYS_NO_PATHCONV=1`, or
@@ -56,3 +57,5 @@ everything "passed"). Known-good result:
 | drop the domain check in `explicit_identity` | 1 |
 | make the derived unique_id random | 4 |
 | skip entity rows in `_async_remove_orphans` | 2 |
+| make `_device_block` return no metadata | 2 |
+| have `_mutate_and_reload` drop mapping-form devices | 1 |

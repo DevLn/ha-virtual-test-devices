@@ -354,6 +354,24 @@ def _make_suffix(platform, device_class):
     return ""
 
 
+DEVICE_META_KEYS = ("manufacturer", "model", "sw_version", "area")
+
+
+def _device_block(block):
+    """(device metadata, entities) for one device in the file.
+
+    PistonCore addition (2026-10-14). A device is `Name: [entities]`, or the
+    mapping form `Name: {manufacturer: .., model: .., sw_version: .., area: ..,
+    entities: [..]}` so a stand-in can carry what the real device reports.
+    Lists keep working unchanged. Values are coerced to str because the device
+    registry wants strings and yaml reads `sw_version: 1.2` as a float.
+    """
+    if isinstance(block, dict):
+        meta = {k: str(block[k]) for k in DEVICE_META_KEYS if block.get(k) is not None}
+        return meta, block.get(ATTR_ENTITIES) or []
+    return {}, block or []
+
+
 class BlendedCfg(object):
     """Helper class to get at Virtual configuration options.
 
@@ -384,12 +402,14 @@ class BlendedCfg(object):
         seen_ids = set()
 
         # Let's fix up the devices/entities
-        for device_name, entities in devices.items():
+        for device_name, block in devices.items():
+            device_meta, entities = _device_block(block)
 
             # Create device. One per all entities.
             self._devices.append({
                 ATTR_DEVICE_ID: device_name,
-                CONF_NAME: _make_name(device_name)
+                CONF_NAME: _make_name(device_name),
+                **device_meta
             })
 
             # Names have to be unique WITHIN a device, because that is the key an

@@ -139,10 +139,12 @@ class VirtualEntity(RestoreEntity):
 
             if config.get(ATTR_DEVICE_ID) != "NOTYET":
                 _LOGGER.debug("setting up device info")
+                # Identifiers only. The device is created with its full details
+                # in __init__ before any platform is set up, and repeating
+                # manufacturer/model here would write the constants back over
+                # whatever the file says (cfg._device_block) on every add.
                 self._attr_device_info = DeviceInfo(
                     identifiers={(COMPONENT_DOMAIN, config.get(ATTR_DEVICE_ID))},
-                    manufacturer=COMPONENT_MANUFACTURER,
-                    model=COMPONENT_MODEL,
                 )
 
         _LOGGER.info(f'VirtualEntity {self._attr_name} created')
