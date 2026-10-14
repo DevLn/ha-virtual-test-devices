@@ -170,6 +170,15 @@ class VirtualEntity(RestoreEntity):
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+        # The registry has the final say on the entity_id: it appends _2 when
+        # the one asked for is taken, and keeps a rename made in the UI. Say so,
+        # because a stand-in that silently lands on a different id is useless.
+        wanted = self._config.get(ATTR_ENTITY_ID)
+        if wanted not in (None, "NOTYET") and wanted != self.entity_id:
+            _LOGGER.warning(
+                "virtual: %s is registered as %s, not the requested %s (that id "
+                "is taken, or the entity was renamed in the UI)",
+                self.name, self.entity_id, wanted)
         state = await self.async_get_last_state()
         if not self._persistent or not state:
             self._create_state(self._config)

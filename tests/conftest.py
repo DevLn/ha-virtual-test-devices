@@ -15,8 +15,12 @@ only requirements are HA and pytest, both of which any HA install already has.
 import asyncio
 import pathlib
 import sys
+from types import SimpleNamespace
 
 import pytest
+
+import homeassistant.helpers.device_registry as dr
+import homeassistant.helpers.entity_registry as er
 
 # The integration is imported as `custom_components.virtual.*`, so its PARENT
 # must be importable.
@@ -71,12 +75,69 @@ class FakeConfig:
         return str(target)
 
 
+class _Rows(dict):
+    """A registry's row collection, with the index lookups that HA's own
+    module-level helpers (`er`/`dr.async_entries_for_config_entry`) call on it.
+    Those helpers are the real ones; only the store behind them is fake."""
+
+    def get_entries_for_config_entry_id(self, entry_id):
+        return [row for row in self.values() if row.config_entry_id == entry_id]
+
+    get_devices_for_config_entry_id = get_entries_for_config_entry_id
+
+
+class FakeEntityRegistry:
+    """Just the surface this integration touches, holding plain rows."""
+
+    def __init__(self):
+        self.entities = _Rows()
+
+    def add(self, entity_id, unique_id, config_entry_id="entry-1", device_id=None):
+        row = SimpleNamespace(
+            entity_id=entity_id, unique_id=unique_id, platform="virtual",
+            config_entry_id=config_entry_id, device_id=device_id,
+            disabled=False, hidden=False, name=None, original_name=None,
+            device_class=None, original_device_class=None)
+        self.entities[entity_id] = row
+        return row
+
+    def async_get(self, entity_id):
+        return self.entities.get(entity_id)
+
+    def async_remove(self, entity_id):
+        del self.entities[entity_id]
+
+
+class FakeDeviceRegistry:
+    def __init__(self):
+        self._devices = _Rows()   # the name HA's helper reaches for
+        self.devices = self._devices
+
+    def add(self, name, identifiers, config_entry_id="entry-1"):
+        row = SimpleNamespace(
+            id=f"dev-{len(self._devices) + 1}", name=name, name_by_user=None,
+            identifiers=set(identifiers), config_entry_id=config_entry_id,
+            manufacturer=None, model=None, sw_version=None, area_id=None)
+        self._devices[row.id] = row
+        return row
+
+    def async_get(self, device_id):
+        return self._devices.get(device_id)
+
+    def async_remove_device(self, device_id):
+        self._devices.pop(device_id)
+
+
 class FakeHass:
     def __init__(self, config_dir=None):
         self.data = {}
         self.config_entries = FakeConfigEntries()
         # Only the tests that load a group's config need this.
         self.config = FakeConfig(config_dir) if config_dir else None
+        # er.async_get / dr.async_get are singletons that live in hass.data, so
+        # parking the fakes there is all it takes for the real helpers to see them.
+        self.data[er.DATA_REGISTRY] = FakeEntityRegistry()
+        self.data[dr.DATA_REGISTRY] = FakeDeviceRegistry()
 
 
 class FakeEntry:

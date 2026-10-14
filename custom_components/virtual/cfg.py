@@ -30,6 +30,7 @@ from homeassistant.const import (
     CONF_UNIT_OF_MEASUREMENT,
     Platform
 )
+from homeassistant.core import valid_entity_id
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import slugify
 from homeassistant.util.yaml import parse_yaml, dump
@@ -309,6 +310,36 @@ def unique_in_device(seen: dict, name: str) -> str:
     return name if seen[name] == 1 else f"{name} {seen[name]}"
 
 
+def explicit_identity(platform: str, entity_id, unique_id, seen: set):
+    """The unique_id for an entity that names its own `entity_id`, or None to
+    skip the entry.
+
+    PistonCore addition (2026-10-14). An entry with an explicit `entity_id` IS
+    that entity: the id is used as given and the unique_id is the YAML
+    `unique_id` or, failing that, the entity_id itself. Both are deterministic,
+    so a regenerated file maps onto the same registry rows every time, which is
+    what lets one Home Assistant stand in for another. Such an entry needs no
+    meta-file row at all, so it can never collide with the name-keyed entries
+    that identify everything else; the name is display only.
+
+    Two things are refused rather than guessed, because a wrong guess becomes a
+    permanent identity: an id whose domain is not the entry's platform, and an
+    id already claimed by an earlier entry in the same group (the first keeps
+    it). Both are logged at ERROR and the entry is skipped.
+    """
+    if not isinstance(entity_id, str) or not valid_entity_id(entity_id) \
+            or entity_id.split(".", 1)[0] != platform:
+        _LOGGER.error("virtual: skipping %r: entity_id must be a valid %s.* id",
+                      entity_id, platform)
+        return None
+    if entity_id in seen:
+        _LOGGER.error("virtual: skipping a second entry for %s; the first one "
+                      "keeps it", entity_id)
+        return None
+    seen.add(entity_id)
+    return unique_id or entity_id
+
+
 def _make_suffix(platform, device_class):
     """Make a suitable suffix for an unnamed entity.
     
@@ -348,6 +379,10 @@ class BlendedCfg(object):
         _LOGGER.debug(f"loaded-meta-data={meta_data}")
         _LOGGER.debug(f"loaded-devices={devices}")
 
+        # Explicit entity ids must be unique across the whole group; see
+        # explicit_identity().
+        seen_ids = set()
+
         # Let's fix up the devices/entities
         for device_name, entities in devices.items():
 
@@ -372,6 +407,22 @@ class BlendedCfg(object):
                 if name is None:
                     name = f"{device_name} {_make_suffix(platform, device_class)}"
                 name = unique_in_device(seen_names, name)
+
+                # An explicit entity_id is the identity and needs no meta row.
+                # See explicit_identity().
+                explicit = entity.get(ATTR_ENTITY_ID)
+                if explicit is not None:
+                    unique_id = explicit_identity(
+                        platform, explicit, entity.get(ATTR_UNIQUE_ID), seen_ids)
+                    if unique_id is None:
+                        continue
+                    entity.update({
+                        CONF_NAME: _make_name(name),
+                        ATTR_UNIQUE_ID: unique_id,
+                        ATTR_DEVICE_ID: device_name
+                    })
+                    self._entities.setdefault(platform, []).append(entity)
+                    continue
 
                 # Look up unique id for this device. If not there this is a new
                 # device.

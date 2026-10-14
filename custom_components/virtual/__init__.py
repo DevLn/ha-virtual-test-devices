@@ -9,6 +9,7 @@ import asyncio
 
 import homeassistant.helpers.config_validation as cv
 import homeassistant.helpers.device_registry as dr
+import homeassistant.helpers.entity_registry as er
 from homeassistant.helpers.config_validation import PLATFORM_SCHEMA
 from homeassistant.helpers.issue_registry import (
     async_create_issue,
@@ -177,10 +178,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await _async_get_or_create_virtual_device_in_registry(hass, entry, device)
     await asyncio.sleep(1)
 
-    # Delete orphaned devices.
-    for switch, device in vcfg.orphaned_entities.items():
-        _LOGGER.debug(f"deleting {switch}/{device}")
-        await _async_delete_virtual_device_from_registry(hass, entry, device)
+    # Remove whatever the file no longer describes.
+    _async_remove_orphans(hass, entry, vcfg)
 
     # Update the component data.
     hass.data[COMPONENT_DOMAIN].update({
@@ -312,15 +311,33 @@ async def _async_get_or_create_virtual_device_in_registry(
     )
 
 
-async def _async_delete_virtual_device_from_registry(
-        hass: HomeAssistant, _entry: ConfigEntry, device
-) -> None:
-    registery = dr.async_get(hass)
-    device_in_registry = registery.async_get_device(
-        identifiers={(COMPONENT_DOMAIN, device[ATTR_DEVICE_ID])},
-    )
-    if device_in_registry:
-        _LOGGER.debug(f"found something to delete! {device_in_registry.id}")
-        registery.async_remove_device(device_in_registry.id)
-    else:
-        _LOGGER.info(f"have orphaned device in meta {device[ATTR_DEVICE_ID]}")
+@callback
+def _async_remove_orphans(hass: HomeAssistant, entry: ConfigEntry, vcfg) -> None:
+    """Remove the registry rows the group's file no longer describes.
+
+    The file is the source of truth: anything registered under this config
+    entry that it does not list is an orphan — an entity row whose unique_id is
+    not about to be provided, or a device whose identifier is not in the file.
+
+    Entities go one row at a time. The code this replaces removed the orphan's
+    whole DEVICE, which also took the device's surviving entities with it and
+    recreated the device under a new id at platform setup, losing its area and
+    customisations and breaking anything that referred to it by device id
+    (PistonCore, 2026-10-14). A device now only goes when the file no longer
+    has it, and a first load also clears the dead rows left behind by the
+    duplicate-name bug that unique_in_device() fixed.
+    """
+    keep_ids = {e[ATTR_UNIQUE_ID]
+                for entities in vcfg.entities.values() for e in entities}
+    ent_reg = er.async_get(hass)
+    for row in er.async_entries_for_config_entry(ent_reg, entry.entry_id):
+        if row.unique_id not in keep_ids:
+            _LOGGER.info("virtual: removing orphaned entity %s", row.entity_id)
+            ent_reg.async_remove(row.entity_id)
+
+    keep_devices = {(COMPONENT_DOMAIN, d[ATTR_DEVICE_ID]) for d in vcfg.devices}
+    dev_reg = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
+        if not device.identifiers & keep_devices:
+            _LOGGER.info("virtual: removing orphaned device %s", device.name)
+            dev_reg.async_remove_device(device.id)

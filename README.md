@@ -64,6 +64,34 @@ Developer tools → States or by clicking it on a dashboard. It also fires a
 Developer tools → Events. The count is the useful part: it shows an automation
 firing twice when it should have fired once, which the message alone cannot.
 
+**Entities with the ids you choose.** Give an entry an `entity_id` and that is
+the id it gets, on every load — no `virtual_` prefix, no slug made from the name.
+Its `unique_id` is the one you give or, if you give none, the entity_id itself,
+so a regenerated file lands on the same registry rows every time. The `name` is
+then display only. This is what lets one Home Assistant stand in for another.
+
+```yaml
+Kitchen:
+  - platform: light
+    name: Kitchen Lamp
+    entity_id: light.kitchen_lamp      # used as given
+  - platform: switch
+    name: Kitchen Lamp                 # same name, different domain: fine
+    entity_id: switch.kitchen_lamp
+    unique_id: kitchen-plug            # optional; defaults to the entity_id
+```
+
+The id's domain must match `platform`, and an id may appear once per group: a
+second entry for the same id is logged as an error and skipped, and the first
+keeps it. Changing an explicit `entity_id` makes a **new** entity; the old row
+is removed on the next load. If Home Assistant cannot give you the id you asked
+for (it is already taken, or you renamed the entity in the UI) the entity is
+registered under what HA chose and a warning names both ids.
+
+Removing an entry from the file removes exactly that entity on the next load. A
+device goes only when the file no longer lists it; its other entities are left
+alone. Entries without `entity_id` behave exactly as before.
+
 ### What cloning will and will not do
 
 It reproduces **shape, not behaviour**: what a device *says it can do*, not how

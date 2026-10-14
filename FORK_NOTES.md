@@ -97,6 +97,28 @@ VERIFIED on 2026.8.0b3: `home` -> `home`, capitalisation handled, unknown zone -
 coordinates intact, GPS inside the home zone -> `home`, and the state survives a
 restart. Upstream had not migrated this as of 2026-08-02.
 
+## Explicit entity ids, and orphans removed one row at a time (2026-10-14)
+
+An entry with an `entity_id` now gets exactly that id, with its `unique_id`
+taken from the file or derived from the id — never random — so a regenerated
+file maps onto the same registry rows. This is the basis for using one HA as a
+stand-in for another: the test instance carries the live instance's entity ids.
+Such entries need no meta-file row (the identity is in the file), so they cannot
+collide with the name-keyed ones. A wrong domain or a repeated id is logged at
+ERROR and the entry skipped; the first entry keeps a contested id. `entity.py`
+warns when HA registers an entity under a different id than the one requested.
+
+Orphan handling was rewritten in passing, because the requirement "removing an
+entity leaves its siblings alone" exposed an upstream bug: `async_setup_entry`
+removed the orphan's whole DEVICE, which took the device's surviving entities
+with it and recreated the device under a new id at platform setup, losing its
+area and customisations and breaking anything that referred to it by device id.
+Now the file is the source of truth: entity rows under the config entry whose
+unique_id is not in the file are removed one at a time, and a device is removed
+only when the file no longer lists it. Side effect: the first load after
+upgrading also clears the dead rows left by the duplicate-name bug above. Worth
+carrying upstream.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation
