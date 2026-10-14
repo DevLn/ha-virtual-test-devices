@@ -416,10 +416,27 @@ class BlendedCfg(object):
         # Explicit entity ids must be unique across the whole group; see
         # explicit_identity().
         seen_ids = set()
+        # A MAC can be given to one device per group only; see below.
+        seen_macs = {}
 
         # Let's fix up the devices/entities
         for device_name, block in devices.items():
             device_meta, entities = _device_block(block)
+
+            # HA matches devices by MAC within one config entry, so a second
+            # device with the same MAC is MERGED into the first. An export
+            # produces exactly that when two integrations report one piece of
+            # hardware (both Omada integrations, for every access point). The
+            # first device keeps the MAC; the rest go without it.
+            mac = device_meta.get("mac")
+            if mac and mac.lower() in seen_macs:
+                _LOGGER.info("virtual: %s has the same MAC as %s; leaving it off "
+                             "so the two stay separate devices",
+                             device_meta.get(CONF_NAME, device_name),
+                             seen_macs[mac.lower()])
+                device_meta.pop("mac")
+            elif mac:
+                seen_macs[mac.lower()] = device_meta.get(CONF_NAME, device_name)
 
             # Create device. One per all entities.
             self._devices.append({

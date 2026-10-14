@@ -242,6 +242,18 @@ older files are unchanged. A file exported before this keyed devices by name,
 so the first import of a new export replaces those devices once on the test
 HA; entity ids, unique ids and history are unaffected.
 
+## Fix: devices sharing a MAC were merged (2026-10-14, 0.14.0-hts.8)
+
+HA matches devices by MAC within one config entry, so two devices in a group
+with the same MAC become ONE device. An export produces that whenever two
+integrations report one piece of hardware: both Omada integrations gave every
+router, switch and AP two devices with one MAC, and the test HA showed each as
+a single device with every entity twice. Within a group the first device now
+keeps a MAC and the rest go without it, with an info line. A device an earlier
+load merged (it holds more than one of the file's devices) is removed on load
+and created again as separate devices; its entities return under the same
+entity ids and unique ids.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

@@ -100,6 +100,38 @@ def test_name_is_shown_and_the_key_only_identifies(tmp_path):
     assert cfg.entities["light"][0]["device_id"] == "4f1c9e2b"
 
 
+def test_a_shared_mac_goes_to_the_first_device_only(tmp_path):
+    """HA merges devices with one MAC inside a config entry. Two integrations
+    reporting one access point gave every AP's two copies the same MAC, and
+    the test HA showed them as one device with every entity twice."""
+    hass, entry = _bench(tmp_path, {
+        "id-a": {"name": "ap-ln.omada", "mac": "18:69:45:02:80:BE", "entities": [LAMP]},
+        "id-b": {"name": "ap-ln.omada", "mac": "18:69:45:02:80:be", "entities": HALL},
+    })
+
+    devices = {d["device_id"]: d for d in _load(hass, entry).devices}
+
+    assert devices["id-a"]["mac"] == "18:69:45:02:80:BE"
+    assert "mac" not in devices["id-b"]
+
+
+def test_a_device_merged_earlier_is_split(tmp_path):
+    from custom_components.virtual import _async_split_merged_devices
+
+    hass, entry = _bench(tmp_path, {
+        "id-a": {"name": "ap", "entities": [LAMP]},
+        "id-b": {"name": "ap", "entities": HALL},
+    })
+    reg = dr.async_get(hass)
+    merged = reg.add("ap", {("virtual", "id-a"), ("virtual", "id-b")})
+    alone = reg.add("other", {("virtual", "id-c")})
+
+    _async_split_merged_devices(hass, entry, _load(hass, entry))
+
+    assert reg.async_get(merged.id) is None
+    assert reg.async_get(alone.id) is not None
+
+
 def test_both_forms_in_one_file(tmp_path):
     hass, entry = _bench(tmp_path, {"Kitchen": KITCHEN, "Hall": HALL})
 

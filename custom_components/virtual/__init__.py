@@ -32,7 +32,7 @@ from .const import *
 from .cfg import BlendedCfg, UpgradeCfg
 
 
-__version__ = '0.14.0-hts.7'
+__version__ = '0.14.0-hts.8'
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -194,6 +194,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     _LOGGER.debug(f"creating new cfg")
     vcfg = BlendedCfg(hass, entry.data)
     await vcfg.async_load()
+
+    # Split devices an earlier load merged, before creating them again.
+    _async_split_merged_devices(hass, entry, vcfg)
 
     # create the devices.
     _LOGGER.debug("creating the devices")
@@ -362,6 +365,25 @@ async def _async_get_or_create_virtual_device_in_registry(
         _LOGGER.error("virtual: %s: %s; creating the device without it",
                       device[CONF_NAME], err)
         registry.async_get_or_create(**fields)
+
+
+@callback
+def _async_split_merged_devices(hass: HomeAssistant, entry: ConfigEntry, vcfg) -> None:
+    """Remove any of our devices that holds more than one of the file's devices.
+
+    Two devices with one MAC used to be merged by the device registry into a
+    single device carrying both identifiers (see the MAC note in cfg.py). Such
+    a device is removed here, which also drops its entity rows; the devices
+    are created again separately just after, and the entities come back under
+    the same entity ids and unique ids when the platforms set up.
+    """
+    wanted = {(COMPONENT_DOMAIN, d[ATTR_DEVICE_ID]) for d in vcfg.devices}
+    dev_reg = dr.async_get(hass)
+    for device in dr.async_entries_for_config_entry(dev_reg, entry.entry_id):
+        if len(device.identifiers & wanted) > 1:
+            _LOGGER.warning("virtual: device %s holds %d devices from the file; "
+                            "splitting it", device.name, len(device.identifiers & wanted))
+            dev_reg.async_remove_device(device.id)
 
 
 @callback
