@@ -161,6 +161,15 @@ time, HA version and integration version. Colour temperature is not exported:
 the light platform reads `initial_color_temp` as kelvin but still validates it
 as a byte, so no real value would pass.
 
+## Version 0.14.0-hts.1 (2026-10-14)
+
+Minor bump for the three features above, with a `-hts.1` pre-release tag
+(ha-test-sim) so a build of this branch is told apart from an upstream release.
+`__version__` in `__init__.py` had drifted to 0.9.4 while the manifest said
+0.13.3, so every device's sw_version was wrong; the two are now the same string
+and a test keeps them that way, and checks the format against the same
+AwesomeVersion strategies HA's loader applies.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

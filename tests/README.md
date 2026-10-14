@@ -12,6 +12,7 @@ rather than trusted.
 | `test_explicit_ids.py` | An entry with an explicit `entity_id` landing on a different id, or a different identity, on a later load. Also the orphan rule: removing one entry removes **that row** and leaves its device and siblings alone, and a name-keyed file with settled meta loads without being rewritten. |
 | `test_device_metadata.py` | The mapping form of a device (`manufacturer`, `model`, `sw_version`, `area`, `entities`) not loading, not reaching the device registry, or being mangled by `create_device` / `remove_device` / `clone_device` rewriting the file. Lists must keep loading exactly as before. |
 | `test_export.py` | The exporter writing something the target platform would reject, dropping or mis-grouping an entity, letting a lock or alarm code through, changing anything on the HA it runs on, or `export_only` mode offering more than the one action. The round trip exports one of every domain, loads the file back as a group and checks every entity against its platform's schema. |
+| `test_version.py` | `__version__` and `manifest.json` drifting apart (they had), or a version string HA's loader would refuse. |
 
 ## Running them
 
@@ -30,7 +31,7 @@ docker cp tests             ha-test:/config/tests
 docker exec ha-test python -m pytest /config/tests -q
 ```
 
-Expect `80 passed`. There is no `pytest-asyncio` dependency — async cases call
+Expect `82 passed`. There is no `pytest-asyncio` dependency — async cases call
 `asyncio.run` directly, so HA and pytest are all you need. The HA image does not
 ship pytest, so run `docker exec ha-test pip install pytest` once. On Windows
 under Git Bash, prefix the docker commands with `MSYS_NO_PATHCONV=1`, or
@@ -64,3 +65,4 @@ everything "passed"). Known-good result:
 | copy `codes` / `last_code_name` in the exporter | 1 |
 | bucket exported entities by entity instead of device | 2 |
 | drop the `export_only` early return in `async_setup` | 1 |
+| change the version in `manifest.json` only | 1 |
