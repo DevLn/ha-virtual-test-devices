@@ -58,11 +58,14 @@ def test_groups_by_device_keeps_live_ids_and_changes_nothing(tmp_path):
     area = ar.async_get(hass).add("Kitchen")
     plug = dr.async_get(hass).add(
         "Kitchen Plug", {("shelly", "p1")}, config_entry_id="shelly",
-        manufacturer="Shelly", model="Plus 1PM", sw_version="1.4.4", area_id=area.id)
+        manufacturer="Shelly", model="Plus 1PM", sw_version="1.4.4", area_id=area.id,
+        connections={("mac", "58:8c:81:a5:08:a0")},
+        configuration_url="http://kitchen-plug.local")
     _live(hass, "switch.kitchen_plug", "on", {"friendly_name": "Kitchen Plug"}, device=plug)
     _live(hass, "sensor.kitchen_plug_power", "12.5",
           {"friendly_name": "Kitchen Plug Power", "unit_of_measurement": "W",
-           "device_class": "power", "state_class": "measurement"}, device=plug)
+           "device_class": "power", "state_class": "measurement"}, device=plug,
+          entity_category="diagnostic")
     _live(hass, "light.hall", "off", {"friendly_name": "Hall Light"})           # no device
     _live(hass, "binary_sensor.yaml_door", "on",                                # no registry row
           {"friendly_name": "Yaml Door", "device_class": "door"}, integration=None)
@@ -73,6 +76,7 @@ def test_groups_by_device_keeps_live_ids_and_changes_nothing(tmp_path):
 
     assert devices["Kitchen Plug"] == {
         "manufacturer": "Shelly", "model": "Plus 1PM", "sw_version": "1.4.4",
+        "configuration_url": "http://kitchen-plug.local", "mac": "58:8c:81:a5:08:a0",
         "area": "Kitchen",
         "entities": [
             {"platform": "switch", "name": "Kitchen Plug",
@@ -80,7 +84,7 @@ def test_groups_by_device_keeps_live_ids_and_changes_nothing(tmp_path):
             {"platform": "sensor", "name": "Kitchen Plug Power",
              "entity_id": "sensor.kitchen_plug_power", "class": "power",
              "unit_of_measurement": "W", "state_class": "measurement",
-             "initial_value": "12.5"},
+             "entity_category": "diagnostic", "initial_value": "12.5"},
         ]}
     assert devices["Hall Light"] == [{"platform": "light", "name": "Hall Light",
                                       "entity_id": "light.hall", "initial_value": "off"}]
@@ -257,7 +261,8 @@ def test_exported_file_loads_back_under_the_same_ids(tmp_path):
                                                          "supported_features": 3})
     _live(hass, "button.bell", "2026-10-14T10:00:00+00:00", {"friendly_name": "Bell"})
     _live(hass, "button.esp_restart", "unknown", {"friendly_name": "ESP Restart",
-                                                   "device_class": "restart"})
+                                                   "device_class": "restart"},
+          entity_category="config")
     _live(hass, "event.remote", "2026-10-14T10:00:00+00:00", {"friendly_name": "Remote",
                                                               "event_types": ["press"]})
     _live(hass, "camera.door", "idle", {"friendly_name": "Door Cam", "supported_features": 0})
@@ -279,6 +284,18 @@ def test_exported_file_loads_back_under_the_same_ids(tmp_path):
         for entity in entities:
             PLATFORM_SCHEMAS[platform](entity)      # exactly what the platform does
     assert loaded["button.esp_restart"]["class"] == "restart"
+    assert loaded["button.esp_restart"]["entity_category"] == "config"
+
+
+def test_an_entity_lands_in_the_same_section_of_the_device_page():
+    from homeassistant.helpers.entity import EntityCategory
+    from custom_components.virtual.sensor import SENSOR_SCHEMA, VirtualSensor
+
+    plain = VirtualSensor(SENSOR_SCHEMA({"name": "A"}), False)
+    diag = VirtualSensor(SENSOR_SCHEMA({"name": "B", "entity_category": "diagnostic"}), False)
+
+    assert plain.entity_category is None
+    assert diag.entity_category is EntityCategory.DIAGNOSTIC
 
 
 def test_a_button_keeps_its_device_class():

@@ -31,6 +31,8 @@ KITCHEN = {
     "manufacturer": "Shelly", "model": "Plus 1",
     "sw_version": 1.2,          # yaml reads it as a float; the registry wants str
     "area": "Kitchen",
+    "mac": "58:8c:81:a5:08:a0",
+    "configuration_url": "http://kitchen.local",
     "entities": [LAMP],
 }
 
@@ -75,7 +77,8 @@ def test_mapping_form_loads_entities_and_metadata(tmp_path):
     assert cfg.devices == [{
         "device_id": "Kitchen", "name": "Kitchen",
         "manufacturer": "Shelly", "model": "Plus 1", "sw_version": "1.2",
-        "area": "Kitchen",
+        "area": "Kitchen", "mac": "58:8c:81:a5:08:a0",
+        "configuration_url": "http://kitchen.local",
     }]
     assert [e["entity_id"] for e in cfg.entities["light"]] == ["light.kitchen"]
     assert cfg.entities["light"][0]["device_id"] == "Kitchen"
@@ -104,6 +107,28 @@ def test_metadata_reaches_the_device_registry(tmp_path):
     assert (h.manufacturer, h.model, h.sw_version, h.suggested_area) == \
         (COMPONENT_MANUFACTURER, COMPONENT_MODEL, __version__, None), \
         "a list-form device must get exactly what it always got"
+    assert k.connections == {("mac", "58:8c:81:a5:08:a0")}
+    assert k.configuration_url == "http://kitchen.local"
+    assert not hasattr(h, "connections") or not h.connections
+
+
+def test_an_unusable_configuration_url_does_not_take_the_device_down(tmp_path, caplog):
+    hass, entry = _bench(tmp_path, {})
+    calls = []
+    real = dr.async_get(hass).async_get_or_create
+
+    def strict(**fields):
+        calls.append(dict(fields))
+        if "configuration_url" in fields:
+            raise ValueError("invalid configuration_url 'ftp://x'")
+        return real(**fields)
+
+    dr.async_get(hass).async_get_or_create = strict
+    run(_async_get_or_create_virtual_device_in_registry(hass, entry, {
+        "device_id": "D", "name": "D", "configuration_url": "ftp://x"}))
+
+    assert len(calls) == 2 and "configuration_url" not in calls[1]
+    assert any("ftp://x" in r.message for r in caplog.records)
 
 
 def test_create_remove_and_clone_leave_a_mapping_device_alone(tmp_path):

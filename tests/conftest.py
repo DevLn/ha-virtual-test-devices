@@ -125,6 +125,7 @@ class FakeEntityRegistry:
             "entity_id": entity_id, "unique_id": unique_id, "platform": "virtual",
             "config_entry_id": config_entry_id, "device_id": device_id, "area_id": None,
             "disabled": False, "hidden": False, "name": None, "original_name": None,
+            "entity_category": None,
             "device_class": None, "original_device_class": None, **extra})
         self.entities[entity_id] = row
         return row
@@ -146,7 +147,7 @@ class FakeDeviceRegistry:
             "id": f"dev-{len(self._devices) + 1}", "name": name, "name_by_user": None,
             "identifiers": set(identifiers), "config_entry_id": config_entry_id,
             "manufacturer": None, "model": None, "sw_version": None, "area_id": None,
-            **extra})
+            "connections": set(), "configuration_url": None, **extra})
         self._devices[row.id] = row
         return row
 

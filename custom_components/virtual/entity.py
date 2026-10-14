@@ -17,7 +17,7 @@ from homeassistant.const import (
     STATE_CLOSED,
 )
 from homeassistant.core import callback
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.util import slugify
@@ -89,6 +89,10 @@ def virtual_schema(default_initial_value: str, extra_attrs):
         vol.Optional(ATTR_DEVICE_ID, default="NOTYET"): cv.string,
         vol.Optional(ATTR_ENTITY_ID, default="NOTYET"): cv.string,
         vol.Optional(ATTR_UNIQUE_ID, default="NOTYET"): cv.string,
+        # Where HA files the entity on its device page: controls (absent),
+        # Configuration or Diagnostic. Copied from a real entity so a stand-in
+        # sits in the same section. HA itself refuses `config` on a sensor.
+        vol.Optional(CONF_ENTITY_CATEGORY): vol.In([c.value for c in EntityCategory]),
     }
     schema.update(extra_attrs)
     return schema
@@ -146,6 +150,9 @@ class VirtualEntity(RestoreEntity):
                 self._attr_device_info = DeviceInfo(
                     identifiers={(COMPONENT_DOMAIN, config.get(ATTR_DEVICE_ID))},
                 )
+
+        if (category := config.get(CONF_ENTITY_CATEGORY)) is not None:
+            self._attr_entity_category = EntityCategory(category)
 
         _LOGGER.info(f'VirtualEntity {self._attr_name} created')
 

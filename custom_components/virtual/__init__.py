@@ -18,7 +18,9 @@ from homeassistant.helpers.issue_registry import (
 from homeassistant.helpers.service import verify_domain_control
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.config_entries import ConfigEntry, SOURCE_IMPORT
-from homeassistant.const import ATTR_ENTITY_ID, CONF_SOURCE, Platform
+from homeassistant.const import (
+    ATTR_ENTITY_ID, CONF_SOURCE, MAJOR_VERSION, MINOR_VERSION, Platform
+)
 from homeassistant.core import (
     DOMAIN as HOMEASSISTANT_DOMAIN,
     HomeAssistant,
@@ -30,7 +32,7 @@ from .const import *
 from .cfg import BlendedCfg, UpgradeCfg
 
 
-__version__ = '0.14.0-hts.3'
+__version__ = '0.14.0-hts.4'
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -325,7 +327,7 @@ async def _async_get_or_create_virtual_device_in_registry(
     # constants are the fallback. `area` is a suggestion HA honours when the
     # device is first created and ignores afterwards, as for a real device, so
     # moving one later is done in the UI.
-    registry.async_get_or_create(
+    fields = dict(
         config_entry_id=entry.entry_id,
         identifiers={(COMPONENT_DOMAIN, device[ATTR_DEVICE_ID])},
         manufacturer=device.get("manufacturer", COMPONENT_MANUFACTURER),
@@ -334,6 +336,30 @@ async def _async_get_or_create_virtual_device_in_registry(
         sw_version=device.get("sw_version", __version__),
         suggested_area=device.get("area"),
     )
+    if mac := device.get("mac"):
+        # Since 2026.8 a device is matched by MAC only within its own config
+        # entry, so a stand-in can carry the real device's MAC without being
+        # merged into it. Before that the match spanned every integration: the
+        # stand-in would have joined the REAL device, and removing it as an
+        # orphan later would have deleted the real one. So older HA skips it.
+        if (MAJOR_VERSION, MINOR_VERSION) >= (2026, 8):
+            fields["connections"] = {(dr.CONNECTION_NETWORK_MAC, mac)}
+        else:
+            _LOGGER.warning("virtual: not giving %s its MAC %s: before Home "
+                            "Assistant 2026.8 that would merge it with any real "
+                            "device that has the same MAC", device[CONF_NAME], mac)
+    if url := device.get("configuration_url"):
+        fields["configuration_url"] = url
+    try:
+        registry.async_get_or_create(**fields)
+    except ValueError as err:
+        # An unusable configuration_url is the one value HA refuses outright,
+        # and refusing it would take the whole group down. Drop it and say so.
+        if fields.pop("configuration_url", None) is None:
+            raise
+        _LOGGER.error("virtual: %s: %s; creating the device without it",
+                      device[CONF_NAME], err)
+        registry.async_get_or_create(**fields)
 
 
 @callback

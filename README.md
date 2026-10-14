@@ -81,7 +81,9 @@ Kitchen:
     unique_id: kitchen-plug            # optional; defaults to the entity_id
 ```
 
-The id's domain must match `platform`, and an id may appear once per group: a
+Capital letters in an id are lowered with a warning, since Home Assistant ids
+are always lowercase. The id's domain must match `platform`, and an id may
+appear once per group: a
 second entry for the same id is logged as an error and skipped, and the first
 keeps it. Changing an explicit `entity_id` makes a **new** entity; the old row
 is removed on the next load. If Home Assistant cannot give you the id you asked
@@ -102,6 +104,8 @@ Kitchen Plug:
   model: Plus 1PM
   sw_version: "1.4.4"
   area: Kitchen          # applied when the device is first created
+  mac: "58:8c:81:a5:08:a0"
+  configuration_url: http://kitchen-plug.local   # the "Visit" link
   entities:
     - platform: switch
       name: Kitchen Plug
@@ -110,7 +114,15 @@ Kitchen Plug:
 
 `area` is a suggestion Home Assistant honours when the device is first created
 and ignores afterwards, exactly as it does for real devices, so moving a device
-later is done in the UI. Any key you leave out falls back to what it was before.
+later is done in the UI. `mac` is shown on the device page; from Home
+Assistant 2026.8 a device is matched by MAC only within its own integration,
+so a stand-in never merges with the real device. Before 2026.8 it would have,
+so there the MAC is skipped with a warning. Any key you leave out falls back to
+what it was before.
+
+Any entity can also take `entity_category: config` or `diagnostic`, which puts
+it in the Configuration or Diagnostic section of its device page. Home
+Assistant refuses `config` on a sensor.
 Lists keep working, and `create_device`, `remove_device` and `clone_device`
 leave a mapping-form device exactly as they found it.
 
@@ -221,11 +233,11 @@ skipped, with the reason. The report is also at the end of the file as comments.
 the integration (Settings → Devices & Services → Add Integration → Virtual Test
 Devices) with that file as the group's file, or point an existing group at it
 and reload the integration. Every exported entity appears under its live id,
-grouped under a device with the live device's name, manufacturer, model and
-area.
+grouped under a device with the live device's name, manufacturer, model,
+software version, area, MAC and "Visit" link.
 
 What the file holds, per entity: `platform`, the live friendly name, the live
-`entity_id`, device class, unit (sensor and number), the abilities
+`entity_id`, device class, entity category, unit (sensor and number), the abilities
 `clone_device` captures, and the live state as `initial_value`. An unavailable
 entity is written as `initial_availability: false`; an unknown state gives no
 `initial_value`; buttons, events, cameras and notifiers carry no state. A light

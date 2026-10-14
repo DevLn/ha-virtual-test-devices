@@ -311,8 +311,8 @@ def unique_in_device(seen: dict, name: str) -> str:
 
 
 def explicit_identity(platform: str, entity_id, unique_id, seen: set):
-    """The unique_id for an entity that names its own `entity_id`, or None to
-    skip the entry.
+    """(entity_id, unique_id) for an entity that names its own `entity_id`, or
+    None to skip the entry.
 
     PistonCore addition (2026-10-14). An entry with an explicit `entity_id` IS
     that entity: the id is used as given and the unique_id is the YAML
@@ -326,10 +326,20 @@ def explicit_identity(platform: str, entity_id, unique_id, seen: set):
     permanent identity: an id whose domain is not the entry's platform, and an
     id already claimed by an earlier entry in the same group (the first keeps
     it). Both are logged at ERROR and the entry is skipped.
+
+    Capital letters are the one thing corrected rather than refused: HA ids are
+    always lowercase, so `sensor.ESPHome_x` can only mean `sensor.esphome_x`,
+    and the result is the same on every load. Easy to hit with find-and-replace
+    on an exported file, which then loaded a device with no entities at all.
     """
+    if isinstance(entity_id, str) and entity_id != entity_id.lower():
+        _LOGGER.warning("virtual: entity_id %s has capital letters; using %s",
+                        entity_id, entity_id.lower())
+        entity_id = entity_id.lower()
     if not isinstance(entity_id, str) or not valid_entity_id(entity_id) \
             or entity_id.split(".", 1)[0] != platform:
-        _LOGGER.error("virtual: skipping %r: entity_id must be a valid %s.* id",
+        _LOGGER.error("virtual: skipping %r: entity_id must be %s.<name>, where "
+                      "<name> uses only lowercase letters, digits and underscores",
                       entity_id, platform)
         return None
     if entity_id in seen:
@@ -337,7 +347,7 @@ def explicit_identity(platform: str, entity_id, unique_id, seen: set):
                       "keeps it", entity_id)
         return None
     seen.add(entity_id)
-    return unique_id or entity_id
+    return entity_id, unique_id or entity_id
 
 
 def _make_suffix(platform, device_class):
@@ -354,7 +364,8 @@ def _make_suffix(platform, device_class):
     return ""
 
 
-DEVICE_META_KEYS = ("manufacturer", "model", "sw_version", "area")
+DEVICE_META_KEYS = ("manufacturer", "model", "sw_version", "area", "mac",
+                    "configuration_url")
 
 
 def _device_block(block):
@@ -362,6 +373,7 @@ def _device_block(block):
 
     PistonCore addition (2026-10-14). A device is `Name: [entities]`, or the
     mapping form `Name: {manufacturer: .., model: .., sw_version: .., area: ..,
+    mac: .., configuration_url: ..,
     entities: [..]}` so a stand-in can carry what the real device reports.
     Lists keep working unchanged. Values are coerced to str because the device
     registry wants strings and yaml reads `sw_version: 1.2` as a float.
@@ -432,13 +444,14 @@ class BlendedCfg(object):
                 # See explicit_identity().
                 explicit = entity.get(ATTR_ENTITY_ID)
                 if explicit is not None:
-                    unique_id = explicit_identity(
+                    identity = explicit_identity(
                         platform, explicit, entity.get(ATTR_UNIQUE_ID), seen_ids)
-                    if unique_id is None:
+                    if identity is None:
                         continue
                     entity.update({
                         CONF_NAME: _make_name(name),
-                        ATTR_UNIQUE_ID: unique_id,
+                        ATTR_ENTITY_ID: identity[0],
+                        ATTR_UNIQUE_ID: identity[1],
                         ATTR_DEVICE_ID: device_name
                     })
                     self._entities.setdefault(platform, []).append(entity)

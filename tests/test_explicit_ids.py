@@ -136,6 +136,19 @@ def test_wrong_domain_is_refused_not_guessed(tmp_path, caplog):
     assert any("light.kitchen" in m for m in _errors(caplog)), "a skip must be loud"
 
 
+def test_capital_letters_are_lowered_not_refused(tmp_path, caplog):
+    """Find-and-replace on an exported file put capitals in every id, and the
+    group loaded a device with no entities at all."""
+    hass, entry = _bench(tmp_path, {
+        "Kitchen": [{"platform": "sensor", "name": "Temp",
+                     "entity_id": "sensor.ESPHomeV_Temp"}],
+    })
+
+    assert _ids(_load(hass, entry)) == {"sensor.esphomev_temp": "sensor.esphomev_temp"}
+    assert not _errors(caplog)
+    assert any("sensor.ESPHomeV_Temp" in r.message for r in caplog.records)
+
+
 def test_duplicate_explicit_id_keeps_the_first(tmp_path, caplog):
     hass, entry = _bench(tmp_path, {
         "A": [{"platform": "light", "name": "First", "entity_id": "light.x"}],

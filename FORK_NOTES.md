@@ -188,6 +188,21 @@ worse, writing the entry unchecked so the next reload failed the whole button
 platform for that group. Button now accepts `class` and uses it as its device
 class, like switch. It was the only platform with this gap.
 
+## Closer copies: entity category, MAC, Visit link; capitals in ids (2026-10-14, 0.14.0-hts.4)
+
+Found by loading a real ESPHome export. Every platform now accepts
+`entity_category` (via `virtual_schema`), so a stand-in sits in the same
+Configuration/Diagnostic section as the real entity; the exporter copies it
+from the registry. A device can carry `mac` and `configuration_url`. The MAC is
+only given on HA 2026.8 or later: from 2026.8 the device registry matches a
+connection within its own config entry only, so a stand-in cannot merge with
+the real device. Before that the match spanned all integrations, which would
+have joined the stand-in to the real device and let orphan removal delete it.
+A configuration_url HA refuses is dropped with an error rather than taking the
+group down. An explicit entity_id with capital letters is lowered with a
+warning instead of refused: find-and-replace on an export had produced a
+device with no entities and only an ERROR line per entity to say why.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

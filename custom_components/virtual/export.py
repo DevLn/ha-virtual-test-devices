@@ -139,6 +139,8 @@ def _entity_export(hass: HomeAssistant, row, state, persistent) -> dict:
             or entity_id.split(".", 1)[1])
     spec = {CONF_PLATFORM: domain, CONF_NAME: str(name), ATTR_ENTITY_ID: entity_id}
     spec.update(entity_spec(hass, domain, row, attrs))
+    if row and row.entity_category:
+        spec[CONF_ENTITY_CATEGORY] = _plain(row.entity_category)
     if persistent is not None:
         spec[CONF_PERSISTENT] = persistent
     if state is None or domain in STATELESS_DOMAINS:
@@ -170,7 +172,12 @@ def _device_meta(device, row, area_reg) -> dict:
         meta = {key: str(value) for key, value in (
             ("manufacturer", device.manufacturer),
             ("model", device.model),
-            ("sw_version", device.sw_version)) if value}
+            ("sw_version", device.sw_version),
+            ("configuration_url", device.configuration_url)) if value}
+        mac = next((value for kind, value in device.connections
+                    if kind == dr.CONNECTION_NETWORK_MAC), None)
+        if mac:
+            meta["mac"] = mac
     area_id = device.area_id if device else (row.area_id if row else None)
     area = area_reg.async_get_area(area_id) if area_id else None
     if area:

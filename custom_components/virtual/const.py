@@ -19,6 +19,7 @@ ATTR_VALUE = "value"
 ATTR_VERSION = "version"
 
 CONF_CLASS = "class"
+CONF_ENTITY_CATEGORY = "entity_category"
 CONF_INITIAL_AVAILABILITY = "initial_availability"
 CONF_INITIAL_VALUE = "initial_value"
 CONF_MAX = "max"
