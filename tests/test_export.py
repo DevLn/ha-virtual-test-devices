@@ -46,9 +46,19 @@ def _live(hass, entity_id, state, attrs=None, *, device=None, integration="shell
 
 
 def _export(hass, **fields):
+    """(response, file text, devices by display name).
+
+    The file keys devices by registry id; tests read them by the name a person
+    sees, in the shape the file used before ids: the entity list alone when a
+    device carries nothing else.
+    """
     response = run(_async_export_devices(hass, FakeCall(**fields)))
     text = open(response["file"], encoding="utf-8").read()
-    return response, text, run(_load_user_data(response["file"]))
+    named = {}
+    for block in run(_load_user_data(response["file"])).values():
+        rest = {k: v for k, v in block.items() if k != "name"}
+        named[block["name"]] = rest["entities"] if set(rest) == {"entities"} else rest
+    return response, text, named
 
 
 # --- what is written -------------------------------------------------------------
@@ -213,18 +223,39 @@ def test_exclude_devices_drops_every_entity_on_a_matching_device(tmp_path):
     }
 
 
-def test_device_name_collisions_get_a_suffix_and_a_note(tmp_path):
+def test_devices_are_keyed_by_registry_id_and_keep_their_names(tmp_path):
+    """Two live devices with one name (two integrations reporting the same
+    access point) must come out as two devices that BOTH show that name, not
+    as "Plug" and "Plug 2". The key is the registry id; a device-less entity
+    is keyed by its entity id."""
     hass = FakeHass(config_dir=tmp_path)
     a = dr.async_get(hass).add("Plug", {("shelly", "a")}, config_entry_id="shelly")
-    b = dr.async_get(hass).add("Plug", {("shelly", "b")}, config_entry_id="shelly")
+    b = dr.async_get(hass).add("Plug", {("other", "b")}, config_entry_id="other")
     _live(hass, "switch.a", "on", {"friendly_name": "Plug"}, device=a)
     _live(hass, "switch.b", "off", {"friendly_name": "Plug"}, device=b)
+    _live(hass, "sensor.loose", "1", {"friendly_name": "Loose"})
 
-    response, _, devices = _export(hass)
+    response, _, _ = _export(hass)
+    raw = run(_load_user_data(response["file"]))
 
-    assert set(devices) == {"Plug", "Plug 2"}
-    assert response["skipped"] == [
-        {"device": "Plug", "reason": "name already used, written as 'Plug 2'"}]
+    assert set(raw) == {a.id, b.id, "sensor.loose"}
+    assert [raw[a.id]["name"], raw[b.id]["name"], raw["sensor.loose"]["name"]] == \
+        ["Plug", "Plug", "Loose"]
+    assert response["skipped"] == []
+
+
+def test_a_renamed_live_device_keeps_its_key(tmp_path):
+    """Renaming a device on live must not make the test HA replace it."""
+    hass = FakeHass(config_dir=tmp_path)
+    plug = dr.async_get(hass).add("Plug", {("shelly", "a")}, config_entry_id="shelly")
+    _live(hass, "switch.a", "on", {"friendly_name": "Plug"}, device=plug)
+
+    before = set(run(_load_user_data(run(_async_export_devices(hass, FakeCall()))["file"])))
+    plug.name_by_user = "Kitchen Plug"
+    after = run(_load_user_data(run(_async_export_devices(hass, FakeCall()))["file"]))
+
+    assert set(after) == before == {plug.id}
+    assert after[plug.id]["name"] == "Kitchen Plug"
 
 
 def test_file_must_be_an_allowed_path(tmp_path):

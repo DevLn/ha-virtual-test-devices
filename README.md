@@ -119,6 +119,10 @@ Kitchen Plug:
       entity_id: switch.kitchen_plug
 ```
 
+The key (`Kitchen Plug:` above) identifies the device. Add `name:` and that is
+what the UI shows instead, so the key can be anything unique: two devices can
+then share one display name. An export uses this, see below.
+
 `area` is a suggestion Home Assistant honours when the device is first created
 and ignores afterwards, exactly as it does for real devices, so moving a device
 later is done in the UI. `mac` is shown on the device page; from Home
@@ -243,6 +247,14 @@ Devices) with that file as the group's file, or point an existing group at it
 and reload the integration. Every exported entity appears under its live id,
 grouped under a device with the live device's name, manufacturer, model,
 software version, area, MAC and "Visit" link.
+
+In the file, each device is keyed by its **live device id**, the long hex
+string in the device page's address, with the readable name under `name`. Two
+live devices with the same name, as two integrations reporting one access point
+make, therefore stay two devices that both show that name. Renaming a device on
+live does not change its key, so the test HA keeps the same device. A device
+removed with `virtual.remove_device` is named by that key. An entity with no
+device is keyed by its entity id.
 
 What the file holds, per entity: `platform`, the live friendly name, the live
 `entity_id`, device class, entity category, unit (sensor and number), the abilities

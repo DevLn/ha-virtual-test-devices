@@ -227,6 +227,21 @@ rename, else the integration's), so renaming a device is how to keep one.
 Entities with no device are untouched. Each excluded device is ONE report line
 with its entity count, not one line per entity.
 
+## Export keys devices by live device id (2026-10-14, 0.14.0-hts.7)
+
+A device's key in the file was its name, and keys must be unique, so two live
+devices sharing a name (two Omada integrations each reporting the same access
+point, split apart by HA 2026.8) came out as "ap-ln.omada" and
+"ap-ln.omada 2", and the suffix showed on the test HA. The key also changed
+whenever a device was renamed on live, which made the test HA replace the
+device. The mapping form now takes `name`, the name shown in the UI, so the key
+only identifies. The export keys each device by its live registry id (an
+entity with no device by its entity id) and writes the readable name as
+`name`. Without `name` the key is still the display name, so hand-written and
+older files are unchanged. A file exported before this keyed devices by name,
+so the first import of a new export replaces those devices once on the test
+HA; entity ids, unique ids and history are unaffected.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

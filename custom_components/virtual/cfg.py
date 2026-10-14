@@ -364,7 +364,7 @@ def _make_suffix(platform, device_class):
     return ""
 
 
-DEVICE_META_KEYS = ("manufacturer", "model", "sw_version", "area", "mac",
+DEVICE_META_KEYS = ("name", "manufacturer", "model", "sw_version", "area", "mac",
                     "configuration_url")
 
 
@@ -374,7 +374,11 @@ def _device_block(block):
     PistonCore addition (2026-10-14). A device is `Name: [entities]`, or the
     mapping form `Name: {manufacturer: .., model: .., sw_version: .., area: ..,
     mac: .., configuration_url: ..,
-    entities: [..]}` so a stand-in can carry what the real device reports.
+    name: .., entities: [..]}` so a stand-in can carry what the real device
+    reports. `name` is the name shown in the UI, so the key only has to
+    identify the device: an export keys devices by the live registry id, which
+    is unique and survives renames, and puts the readable name here. Without
+    `name` the key is the display name, as it always was.
     Lists keep working unchanged. Values are coerced to str because the device
     registry wants strings and yaml reads `sw_version: 1.2` as a float.
     """
@@ -437,7 +441,8 @@ class BlendedCfg(object):
                 # there the device name and, optionally, the class.
                 name = entity.get(CONF_NAME, None)
                 if name is None:
-                    name = f"{device_name} {_make_suffix(platform, device_class)}"
+                    shown = device_meta.get(CONF_NAME, device_name)
+                    name = f"{shown} {_make_suffix(platform, device_class)}"
                 name = unique_in_device(seen_names, name)
 
                 # An explicit entity_id is the identity and needs no meta row.

@@ -84,6 +84,22 @@ def test_mapping_form_loads_entities_and_metadata(tmp_path):
     assert cfg.entities["light"][0]["device_id"] == "Kitchen"
 
 
+def test_name_is_shown_and_the_key_only_identifies(tmp_path):
+    """An export keys devices by live registry id; `name` is what people see.
+    Two devices may share a name, as two integrations' copies of one access
+    point do on live."""
+    hass, entry = _bench(tmp_path, {
+        "4f1c9e2b": {"name": "ap-ln.omada", "entities": [LAMP]},
+        "9a8b7c6d": {"name": "ap-ln.omada", "entities": HALL},
+    })
+
+    cfg = _load(hass, entry)
+
+    assert [(d["device_id"], d["name"]) for d in cfg.devices] == \
+        [("4f1c9e2b", "ap-ln.omada"), ("9a8b7c6d", "ap-ln.omada")]
+    assert cfg.entities["light"][0]["device_id"] == "4f1c9e2b"
+
+
 def test_both_forms_in_one_file(tmp_path):
     hass, entry = _bench(tmp_path, {"Kitchen": KITCHEN, "Hall": HALL})
 

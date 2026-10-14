@@ -65,7 +65,7 @@ from . import (
     device_tracker, event, fan, humidifier, light, lock, media_player, notify,
     number, select, sensor, siren, switch, text, vacuum, valve,
 )
-from .cfg import _atomic_write, unique_in_device
+from .cfg import _atomic_write
 from .clone import REPRODUCIBLE_DOMAINS, _plain, entity_spec
 from .const import *
 
@@ -200,8 +200,11 @@ def _device_meta(device, row, area_reg) -> dict:
 def _collect(hass: HomeAssistant, data: dict) -> tuple[dict, list]:
     """(devices for the file, skipped) from the registries and live states.
 
-    Reads only. Devices are bucketed by registry device id while collecting
-    and get their display names, made unique, at the end.
+    Reads only. Each device is keyed by its live registry id (or, for an entity
+    with no device, by its entity id): unique by construction, so two devices
+    that share a name stay two devices with that same name, and stable across
+    renames, so renaming a device on live does not make the test HA replace it.
+    The readable name goes in the device's `name` (see cfg._device_block).
     """
     ent_reg, dev_reg, area_reg = er.async_get(hass), dr.async_get(hass), ar.async_get(hass)
     excluded = set(data[CONF_EXCLUDE_INTEGRATIONS])
@@ -268,15 +271,9 @@ def _collect(hass: HomeAssistant, data: dict) -> tuple[dict, list]:
     skipped += [{"device": label, "reason": f"matched exclude_devices ({count} entities)"}
                 for label, count in sorted(excluded_devices.items())]
 
-    devices, seen = {}, {}
-    for bucket in buckets.values():
-        label = bucket["label"] or "Device"
-        key = unique_in_device(seen, label)
-        if key != label:
-            skipped.append({"device": label,
-                            "reason": f"name already used, written as '{key}'"})
-        devices[key] = ({**bucket["meta"], ATTR_ENTITIES: bucket[ATTR_ENTITIES]}
-                        if bucket["meta"] else bucket[ATTR_ENTITIES])
+    devices = {key: {CONF_NAME: bucket["label"] or "Device", **bucket["meta"],
+                     ATTR_ENTITIES: bucket[ATTR_ENTITIES]}
+               for key, bucket in buckets.items()}
     return devices, skipped
 
 
