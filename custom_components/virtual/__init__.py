@@ -24,7 +24,7 @@ from homeassistant.core import (
     HomeAssistant,
     callback
 )
-from homeassistant.exceptions import ServiceValidationError
+from homeassistant.exceptions import ConfigEntryError, ServiceValidationError
 
 from .const import *
 from .cfg import BlendedCfg, UpgradeCfg
@@ -37,6 +37,7 @@ _LOGGER = logging.getLogger(__name__)
 CONFIG_SCHEMA = vol.Schema({
         COMPONENT_DOMAIN: vol.Schema({
             vol.Optional(CONF_YAML_CONFIG, default=False): cv.boolean,
+            vol.Optional(CONF_EXPORT_ONLY, default=False): cv.boolean,
         }),
     },
     extra=vol.ALLOW_EXTRA,
@@ -94,6 +95,19 @@ async def async_setup(hass, config):
         hass.data[COMPONENT_DOMAIN] = {}
         hass.data[COMPONENT_SERVICES] = {}
         hass.data[COMPONENT_CONFIG] = {}
+
+    # --- PistonCore: export the live entities as stand-ins (additive; export.py) ---
+    # Registered here, not per group, because on a live HA there is no group:
+    # with export_only this action is all the integration provides.
+    from .export import async_register_export_service
+    async_register_export_service(hass)
+
+    export_only = config.get(COMPONENT_DOMAIN, {}).get(CONF_EXPORT_ONLY, False)
+    hass.data[COMPONENT_CONFIG][CONF_EXPORT_ONLY] = export_only
+    if export_only:
+        _LOGGER.info("virtual: export_only is set, so only virtual.export_devices "
+                     "is available here and no group will be set up")
+        return True
 
     # See if yaml support was enabled.
     if not config.get(COMPONENT_DOMAIN, {}).get(CONF_YAML_CONFIG, False):
@@ -165,6 +179,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[COMPONENT_DOMAIN] = {}
         hass.data[COMPONENT_SERVICES] = {}
         hass.data[COMPONENT_CONFIG] = {}
+
+    # A live HA in export_only mode must not run groups (see export.py).
+    if hass.data[COMPONENT_CONFIG].get(CONF_EXPORT_ONLY):
+        raise ConfigEntryError(
+            "export_only is set under virtual: in configuration.yaml, so no "
+            "virtual group runs on this Home Assistant. Remove it to load groups here.")
 
     # Get the config.
     _LOGGER.debug(f"creating new cfg")

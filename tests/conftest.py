@@ -19,6 +19,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import homeassistant.helpers.area_registry as ar
 import homeassistant.helpers.device_registry as dr
 import homeassistant.helpers.entity_registry as er
 
@@ -66,6 +67,8 @@ class FakeConfigEntries:
 class FakeConfig:
     """Just enough of hass.config for code that resolves a file under /config."""
 
+    units = SimpleNamespace(temperature_unit="°C")
+
     def __init__(self, config_dir):
         self.config_dir = pathlib.Path(config_dir)
 
@@ -73,6 +76,20 @@ class FakeConfig:
         target = self.config_dir.joinpath(*parts)
         target.parent.mkdir(parents=True, exist_ok=True)
         return str(target)
+
+    def is_allowed_path(self, path) -> bool:
+        return pathlib.Path(path).resolve().is_relative_to(self.config_dir.resolve())
+
+
+class FakeServices:
+    def __init__(self):
+        self.registered = {}
+
+    def has_service(self, domain, service):
+        return (domain, service) in self.registered
+
+    def async_register(self, domain, service, handler, schema=None, supports_response=None):
+        self.registered[(domain, service)] = handler
 
 
 class _Rows(dict):
@@ -96,12 +113,12 @@ class FakeEntityRegistry:
     def __init__(self):
         self.entities = _Rows()
 
-    def add(self, entity_id, unique_id, config_entry_id="entry-1", device_id=None):
-        row = SimpleNamespace(
-            entity_id=entity_id, unique_id=unique_id, platform="virtual",
-            config_entry_id=config_entry_id, device_id=device_id,
-            disabled=False, hidden=False, name=None, original_name=None,
-            device_class=None, original_device_class=None)
+    def add(self, entity_id, unique_id, config_entry_id="entry-1", device_id=None, **extra):
+        row = SimpleNamespace(**{
+            "entity_id": entity_id, "unique_id": unique_id, "platform": "virtual",
+            "config_entry_id": config_entry_id, "device_id": device_id, "area_id": None,
+            "disabled": False, "hidden": False, "name": None, "original_name": None,
+            "device_class": None, "original_device_class": None, **extra})
         self.entities[entity_id] = row
         return row
 
@@ -117,11 +134,12 @@ class FakeDeviceRegistry:
         self._devices = _Rows()   # the name HA's helper reaches for
         self.devices = self._devices
 
-    def add(self, name, identifiers, config_entry_id="entry-1"):
-        row = SimpleNamespace(
-            id=f"dev-{len(self._devices) + 1}", name=name, name_by_user=None,
-            identifiers=set(identifiers), config_entry_id=config_entry_id,
-            manufacturer=None, model=None, sw_version=None, area_id=None)
+    def add(self, name, identifiers, config_entry_id="entry-1", **extra):
+        row = SimpleNamespace(**{
+            "id": f"dev-{len(self._devices) + 1}", "name": name, "name_by_user": None,
+            "identifiers": set(identifiers), "config_entry_id": config_entry_id,
+            "manufacturer": None, "model": None, "sw_version": None, "area_id": None,
+            **extra})
         self._devices[row.id] = row
         return row
 
@@ -141,6 +159,19 @@ class FakeDeviceRegistry:
 
     def async_remove_device(self, device_id):
         self._devices.pop(device_id)
+
+
+class FakeAreaRegistry:
+    def __init__(self):
+        self.areas = {}
+
+    def add(self, name):
+        area = SimpleNamespace(id=name.lower().replace(" ", "_"), name=name)
+        self.areas[area.id] = area
+        return area
+
+    def async_get_area(self, area_id):
+        return self.areas.get(area_id)
 
 
 class FakeStates:
@@ -164,13 +195,18 @@ class FakeHass:
     def __init__(self, config_dir=None):
         self.data = {}
         self.states = FakeStates()
+        self.services = FakeServices()
         self.config_entries = FakeConfigEntries()
         # Only the tests that load a group's config need this.
         self.config = FakeConfig(config_dir) if config_dir else None
-        # er.async_get / dr.async_get are singletons that live in hass.data, so
-        # parking the fakes there is all it takes for the real helpers to see them.
+        # er/dr/ar.async_get are singletons that live in hass.data, so parking
+        # the fakes there is all it takes for the real helpers to see them.
         self.data[er.DATA_REGISTRY] = FakeEntityRegistry()
         self.data[dr.DATA_REGISTRY] = FakeDeviceRegistry()
+        self.data[ar.DATA_REGISTRY] = FakeAreaRegistry()
+
+    async def async_add_executor_job(self, fn, *args):
+        return fn(*args)
 
 
 class FakeEntry:

@@ -28,6 +28,9 @@ CONF_OPEN_CLOSE_DURATION = "open_close_duration"
 CONF_OPEN_CLOSE_TICK = "open_close_tick"
 CONF_PERSISTENT = "persistent"
 CONF_YAML_CONFIG = "yaml_config"
+# PistonCore (export.py): `virtual: {export_only: true}` makes a LIVE Home
+# Assistant provide only the export action — no groups, entities or create/clone.
+CONF_EXPORT_ONLY = "export_only"
 
 # PistonCore full-fidelity cloning (FORK_NOTES.md). A real entity advertises its
 # abilities as HA's `supported_features` bitmask; a faithful clone takes that

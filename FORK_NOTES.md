@@ -134,6 +134,33 @@ set up, so behaviour for existing files is unchanged. The file rewriters
 (create, remove, clone) replace or drop whole device values and never look
 inside the others, so a mapping-form device survives them untouched (tested).
 
+## Export-only mode and `virtual.export_devices` (2026-10-14)
+
+What the explicit ids exist for: one HA stands in for another. On the live HA,
+`virtual: {export_only: true}` makes the integration provide exactly one thing,
+the export action, and refuse everything else: `async_setup` starts no import
+flow and raises no deprecation issue, `async_setup_entry` raises
+ConfigEntryError (so the UI says why), and the config flow aborts with
+`export_only`. The action is registered in `async_setup` in both modes, because
+on a live HA there is no group to hang it on; HA calls `async_setup` whenever an
+entry exists, so normal mode gets it too.
+
+`export.py` walks the entity registry once (plus states with no row), buckets by
+device, keeps the live friendly name and `entity_id`, takes class, unit and
+abilities from clone.py's per-entity capture (`entity_spec`, extracted so clone
+and export cannot disagree, including about codes), maps the live state to
+`initial_value` (unavailable gives `initial_availability: false`; unknown gives
+none; button, camera, event and notify give none; a light also gets brightness,
+hs colour and effect) and validates every entry against the platform's own
+closed schema before writing. A rejected entry goes to the report, never the
+file, so the file always loads. The report (each individually skipped entity
+with its reason, and non-reproducible domains as one count per domain, since a
+live HA has hundreds) is returned by the action and appended to the file as
+comments. Written with cfg.py's atomic writer, under a header naming export
+time, HA version and integration version. Colour temperature is not exported:
+the light platform reads `initial_color_temp` as kelvin but still validates it
+as a byte, so no real value would pass.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

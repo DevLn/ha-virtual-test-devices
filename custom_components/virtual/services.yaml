@@ -185,3 +185,62 @@ remove_device:
       example: 'Test Multi Sensor'
       selector:
         text:
+
+export_devices:
+  name: Export devices (PistonCore)
+  description: >-
+    Write every reproducible entity on this Home Assistant to a devices file
+    that, loaded as a virtual group on another Home Assistant, provides a
+    stand-in for each one under the SAME entity id, starting in its current
+    state. Reads only; the file is the only thing it writes. Never copies lock
+    or alarm codes. Returns what was written and what was skipped, with reasons.
+  fields:
+    file:
+      name: File
+      description: >-
+        Where to write. Defaults to virtual_export.yaml in the config folder;
+        must be an allowed path.
+      required: false
+      example: '/config/virtual_export.yaml'
+      selector:
+        text:
+    exclude_integrations:
+      name: Exclude integrations
+      description: >-
+        Integrations to leave out. The other Home Assistant has its own copies
+        of the defaults, so exporting them would only make _2 duplicates.
+      required: false
+      default: [hassio, backup, sun, hacs, virtual]
+      selector:
+        object:
+    exclude_entities:
+      name: Exclude entities
+      description: Entity ids or patterns (sensor.*_power) to leave out.
+      required: false
+      example: '["sensor.*_power", "light.test_lamp"]'
+      selector:
+        object:
+    include_domains:
+      name: Include domains
+      description: >-
+        Only export these domains. Defaults to every domain this integration
+        can reproduce.
+      required: false
+      example: '["light", "switch", "binary_sensor"]'
+      selector:
+        object:
+    persistent:
+      name: Persistent
+      description: >-
+        If set, written on every exported entity as its persistent flag. If
+        left out, not written.
+      required: false
+      selector:
+        boolean:
+    skip_hidden:
+      name: Skip hidden
+      description: Leave out entities hidden in the UI.
+      required: false
+      default: false
+      selector:
+        boolean:

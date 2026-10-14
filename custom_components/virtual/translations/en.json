@@ -1,6 +1,9 @@
 {
   "title": "Virtual Devices",
   "config": {
+    "abort": {
+      "export_only": "This Home Assistant has `export_only: true` under `virtual:` in configuration.yaml, so it only exports its entities for another Home Assistant. Remove that line to create virtual groups here."
+    },
     "error": {
       "group_name_used": "That group name is already in use, try another.",
       "file_name_used": "That file name is already in use, try another."

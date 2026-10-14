@@ -34,6 +34,10 @@ class VirtualFlowHandler(config_entries.ConfigFlow, domain=COMPONENT_DOMAIN):
     async def async_step_user(self, user_input):
         _LOGGER.debug(f"step user {user_input}")
 
+        # A live HA in export_only mode must not grow groups (see export.py).
+        if self.hass.data.get(COMPONENT_CONFIG, {}).get(CONF_EXPORT_ONLY):
+            return self.async_abort(reason="export_only")
+
         errors = {}
         if user_input is not None:
             try:

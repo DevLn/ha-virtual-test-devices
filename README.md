@@ -167,6 +167,7 @@ Everything is a normal Home Assistant action, so it all works from
 | `virtual.describe_device` | return that copy's specification without creating it |
 | `virtual.create_device` | create a device from an explicit list of entities |
 | `virtual.remove_device` | remove one |
+| `virtual.export_devices` | write this HA's entities as stand-ins for another HA — see below |
 | `virtual.set` | set a sensor's value |
 | `virtual.set_available` | mark a device available or unavailable — the field is `value: true/false`, **not** `available:` |
 | `virtual.fire_event` | fire a button / scene event |
@@ -175,6 +176,80 @@ Everything is a normal Home Assistant action, so it all works from
 Per-platform configuration options are documented in
 **[UPSTREAM_README.md](UPSTREAM_README.md)** — upstream's documentation, kept
 because it is still accurate for everything it covers.
+
+## Simulating a live home
+
+Run a second Home Assistant that has every entity the live one has, under the
+**same entity ids**, starting in the live state — then copy an automation across
+and run it unchanged against stand-ins. The two instances are connected by
+nothing but a file you copy by hand.
+
+**On the live Home Assistant** add this to `configuration.yaml` and restart:
+
+```yaml
+virtual:
+  export_only: true
+```
+
+In this mode the integration provides exactly one thing, the
+`virtual.export_devices` action. No group can be added (the config flow says
+so), and no virtual entity and no create/clone action exists, so the live home
+cannot grow test devices by accident. Run the action from
+**Developer tools → Actions**:
+
+```yaml
+action: virtual.export_devices
+data:
+  exclude_entities:
+    - sensor.*_power
+```
+
+It writes `virtual_export.yaml` in the config folder (pass `file:` for another
+allowed path) and returns a report: what was written and every entity it
+skipped, with the reason. The report is also at the end of the file as comments.
+
+| field | default | meaning |
+|---|---|---|
+| `file` | `<config>/virtual_export.yaml` | where to write; must be an allowed path |
+| `exclude_integrations` | `hassio, backup, sun, hacs, virtual` | the other HA has its own copies of these, so exporting them would only make `_2` duplicates |
+| `exclude_entities` | none | entity ids or patterns such as `sensor.*_power` |
+| `include_domains` | every reproducible domain | export only these domains |
+| `persistent` | not written | if given, written on every entity |
+| `skip_hidden` | `false` | leave out entities hidden in the UI |
+
+**On the test Home Assistant** copy the file into the config folder, then add
+the integration (Settings → Devices & Services → Add Integration → Virtual Test
+Devices) with that file as the group's file, or point an existing group at it
+and reload the integration. Every exported entity appears under its live id,
+grouped under a device with the live device's name, manufacturer, model and
+area.
+
+What the file holds, per entity: `platform`, the live friendly name, the live
+`entity_id`, device class, unit (sensor and number), the abilities
+`clone_device` captures, and the live state as `initial_value`. An unavailable
+entity is written as `initial_availability: false`; an unknown state gives no
+`initial_value`; buttons, events, cameras and notifiers carry no state. A light
+also gets its brightness, colour and effect. Every entry is checked against the
+platform that will load it before it is written; anything the platform would
+reject goes to the report instead of the file, so the file always loads.
+
+Things to know:
+
+- **Entities without a registry entry** (YAML entities with no `unique_id`)
+  are exported too, but carry no integration name, so only `exclude_entities`
+  can filter them.
+- **An id that is already taken** on the test HA gets `_2` from Home Assistant,
+  and the log warns naming both ids. The default `exclude_integrations` exists
+  to avoid exactly that.
+- **A fan's `initial_value` is ignored** by the fan platform today, so an
+  exported fan starts off.
+- **It never copies lock or alarm codes.** The per-entity capture is the same
+  one `clone_device` uses.
+- **Nothing on the live HA changes** except the file being written.
+
+To go back: remove `export_only` from the live `configuration.yaml` and
+restart. On the test HA, remove the group, or the devices from its file, and
+the entities go with it.
 
 ## Tests
 

@@ -182,6 +182,26 @@ def capability_config(hass: HomeAssistant, domain: str, attrs: dict) -> dict:
     return spec
 
 
+def entity_spec(hass: HomeAssistant, domain: str, entry, attrs: dict) -> dict:
+    """What makes a copy of one entity a real copy: its class, its unit (sensor
+    and number only) and the output of capability_config().
+
+    `entry` is the entity-registry row, or None for an entity that has none.
+    Shared by clone_device and export_devices so the two can never disagree
+    about what a copy carries — including what it must never carry.
+    """
+    spec: dict = {}
+    device_class = attrs.get("device_class") or (
+        entry and (entry.device_class or entry.original_device_class))
+    if device_class:
+        spec["class"] = _plain(device_class)
+    unit = attrs.get("unit_of_measurement")
+    if unit and domain in ("sensor", "number"):
+        spec["unit_of_measurement"] = _plain(unit)
+    spec.update(capability_config(hass, domain, attrs))
+    return spec
+
+
 def _capability_name(entity_entry, attrs: dict, device_label: str) -> str:
     """The entity's CAPABILITY part, with the device's own name stripped off, so a
     camera's "Driveway Motion Smart Detect Type" reduces to "Smart Detect Type".
@@ -239,14 +259,7 @@ def build_clone_spec(hass: HomeAssistant, device_id: str) -> tuple[str, list[dic
         # Capability part only. The DEVICE name is prepended by the caller — see
         # _async_clone_device for why that is not cosmetic.
         spec = {"platform": domain, "name": unique}
-        device_class = attrs.get("device_class") or entry.device_class \
-            or entry.original_device_class
-        if device_class:
-            spec["class"] = _plain(device_class)
-        unit = attrs.get("unit_of_measurement")
-        if unit and domain in ("sensor", "number"):
-            spec["unit_of_measurement"] = _plain(unit)
-        spec.update(capability_config(hass, domain, attrs))
+        spec.update(entity_spec(hass, domain, entry, attrs))
         specs.append(spec)
 
     if not specs:
