@@ -170,6 +170,15 @@ Minor bump for the three features above, with a `-hts.1` pre-release tag
 and a test keeps them that way, and checks the format against the same
 AwesomeVersion strategies HA's loader applies.
 
+## Fix: the default export path was refused (2026-10-14, 0.14.0-hts.2)
+
+HA's `is_allowed_path` only covers `allowlist_external_dirs`, which by default
+is `<config>/www` and the media folders, not the config folder itself. The
+exporter checked only that, so the default `<config>/virtual_export.yaml` was
+refused on every real install. The tests missed it because the fake was more
+lenient than HA; it now applies HA's rule. Writing is allowed inside the config
+folder or under the allowlist.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

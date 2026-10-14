@@ -3,7 +3,8 @@ Export the live entities as virtual stand-ins — PistonCore addition (FORK_NOTE
 
 Action: virtual.export_devices
   file:                  where to write; default <config>/virtual_export.yaml.
-                         Must be under an allowed path.
+                         Must be inside the config folder or under
+                         allowlist_external_dirs.
   exclude_integrations:  integrations to leave out. Default hassio, backup, sun,
                          hacs and virtual: the target HA has its own copies of
                          those, so exporting them would only make _2 duplicates.
@@ -30,6 +31,7 @@ create or clone — so the live home cannot grow test devices by accident.
 
 import fnmatch
 import logging
+import pathlib
 from collections import Counter
 
 import voluptuous as vol
@@ -275,9 +277,24 @@ def _report_comment(report: list) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _may_write(hass: HomeAssistant, path: str) -> bool:
+    """Inside the config folder, or somewhere HA lets integrations write.
+
+    HA's own is_allowed_path does NOT cover the config folder itself: by
+    default it allows only <config>/www and the media folders. Checking that
+    alone refused the default <config>/virtual_export.yaml on a real install
+    (2026-10-14). The config folder is where this integration keeps its
+    devices file anyway. Blocking I/O: call it in the executor.
+    """
+    config_dir = pathlib.Path(hass.config.config_dir).resolve()
+    if pathlib.Path(path).resolve().is_relative_to(config_dir):
+        return True
+    return hass.config.is_allowed_path(path)
+
+
 async def _async_export_devices(hass: HomeAssistant, call) -> dict:
     path = hass.config.path(call.data.get(CONF_FILE) or DEFAULT_FILE)
-    if not await hass.async_add_executor_job(hass.config.is_allowed_path, path):
+    if not await hass.async_add_executor_job(_may_write, hass, path):
         raise ServiceValidationError(
             f"virtual: {path} is outside the config folder and allowlist_external_dirs")
 

@@ -71,6 +71,7 @@ class FakeConfig:
 
     def __init__(self, config_dir):
         self.config_dir = pathlib.Path(config_dir)
+        self.allowlist_external_dirs = {str(self.config_dir / "www")}
 
     def path(self, *parts) -> str:
         target = self.config_dir.joinpath(*parts)
@@ -78,7 +79,13 @@ class FakeConfig:
         return str(target)
 
     def is_allowed_path(self, path) -> bool:
-        return pathlib.Path(path).resolve().is_relative_to(self.config_dir.resolve())
+        """HA's rule, not a friendlier one: only allowlist_external_dirs count,
+        and by default that is <config>/www and the media folders, NOT the config
+        folder itself. A lenient fake here hid a refusal of the default export
+        path that every real install hit."""
+        target = pathlib.Path(path).resolve()
+        return any(target.is_relative_to(pathlib.Path(d).resolve())
+                   for d in self.allowlist_external_dirs)
 
 
 class FakeServices:

@@ -199,7 +199,7 @@ export_devices:
       name: File
       description: >-
         Where to write. Defaults to virtual_export.yaml in the config folder;
-        must be an allowed path.
+        must be inside the config folder or under allowlist_external_dirs.
       required: false
       example: '/config/virtual_export.yaml'
       selector:

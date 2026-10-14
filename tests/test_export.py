@@ -8,6 +8,8 @@ code survives, that the file loads back under the same ids, and that
 export_only mode offers this one action and nothing else.
 """
 
+import pathlib
+
 import pytest
 
 import homeassistant.helpers.area_registry as ar
@@ -197,6 +199,21 @@ def test_file_must_be_an_allowed_path(tmp_path):
     hass = FakeHass(config_dir=tmp_path)
     with pytest.raises(ServiceValidationError):
         run(_async_export_devices(hass, FakeCall(file="/etc/virtual_export.yaml")))
+
+
+def test_the_default_path_and_the_allowlist_are_writable(tmp_path):
+    """The default lives in the config folder, which HA's own allowlist does
+    not cover; refusing it broke the action on every real install."""
+    hass = FakeHass(config_dir=tmp_path / "config")
+    outside = tmp_path / "exports"
+    outside.mkdir()
+    hass.config.allowlist_external_dirs.add(str(outside))
+
+    default = run(_async_export_devices(hass, FakeCall()))
+    listed = run(_async_export_devices(hass, FakeCall(file=str(outside / "x.yaml"))))
+
+    assert default["file"] == str(tmp_path / "config" / "virtual_export.yaml")
+    assert pathlib.Path(listed["file"]).exists()
 
 
 def test_every_reproducible_domain_has_a_schema():

@@ -205,12 +205,12 @@ data:
 ```
 
 It writes `virtual_export.yaml` in the config folder (pass `file:` for another
-allowed path) and returns a report: what was written and every entity it
+path inside the config folder or under `allowlist_external_dirs`) and returns a report: what was written and every entity it
 skipped, with the reason. The report is also at the end of the file as comments.
 
 | field | default | meaning |
 |---|---|---|
-| `file` | `<config>/virtual_export.yaml` | where to write; must be an allowed path |
+| `file` | `<config>/virtual_export.yaml` | where to write; inside the config folder or under `allowlist_external_dirs` |
 | `exclude_integrations` | `hassio, backup, sun, hacs, virtual` | the other HA has its own copies of these, so exporting them would only make `_2` duplicates |
 | `exclude_entities` | none | entity ids or patterns such as `sensor.*_power` |
 | `include_domains` | every reproducible domain | export only these domains |
