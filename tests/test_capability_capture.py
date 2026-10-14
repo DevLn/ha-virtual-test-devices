@@ -111,6 +111,8 @@ def _ha_capability_attributes(domain, entity_class):
     ("siren", "SirenEntity"),
     ("humidifier", "HumidifierEntity"),
     ("light", "LightEntity"),
+    ("select", "SelectEntity"),
+    ("text", "TextEntity"),
 ])
 def test_capture_list_covers_what_ha_calls_a_capability(domain, entity_class):
     ha_attrs = _ha_capability_attributes(domain, entity_class)

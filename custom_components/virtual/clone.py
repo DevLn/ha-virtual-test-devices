@@ -73,8 +73,8 @@ DESCRIBE_DEVICE_SCHEMA = vol.Schema({
 REPRODUCIBLE_DOMAINS = {
     "alarm_control_panel", "binary_sensor", "button", "camera", "climate",
     "cover", "device_tracker", "event", "fan", "humidifier", "light", "lock",
-    "media_player", "notify", "number", "sensor", "siren", "switch", "vacuum",
-    "valve",
+    "media_player", "notify", "number", "select", "sensor", "siren", "switch",
+    "text", "vacuum", "valve",
 }
 
 # (domain) -> the capability attributes to copy verbatim. See the module docstring
@@ -98,6 +98,8 @@ CLONE_ATTRS: dict[str, tuple[str, ...]] = {
               "min_color_temp_kelvin", "max_color_temp_kelvin"),
     "sensor": ("state_class", "options"),
     "number": ("min", "max", "step", "mode"),
+    "select": ("options",),
+    "text": ("min", "max", "pattern", "mode"),
 }
 
 # Domains whose platform here accepts `supported_features`. Deliberately not all

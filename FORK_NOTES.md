@@ -203,6 +203,18 @@ group down. An explicit entity_id with capital letters is lowered with a
 warning instead of refused: find-and-replace on an export had produced a
 device with no entities and only an ERROR line per entity to say why.
 
+## Select and text platforms (2026-10-14, 0.14.0-hts.5)
+
+The settings devices expose (ESPHome log level, modes, names) were skipped by
+the exporter as "domain not reproducible". `select.py` and `text.py` add them,
+driven by HA's own select/text actions. Capture is HA's capability attributes:
+`options` for select, `min`/`max`/`pattern`/`mode` for text, checked against HA
+by the existing capability test. HA's TextEntity RAISES for a state that breaks
+its own limits, so a starting or restored text value that does not fit becomes
+empty with a warning; a select value off its menu falls back to the first
+option. A `password` text is exported without its value, the same privacy
+boundary as lock and alarm codes.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

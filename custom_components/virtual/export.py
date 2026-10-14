@@ -59,7 +59,7 @@ from . import (
     __version__,
     alarm_control_panel, binary_sensor, button, camera, climate, cover,
     device_tracker, event, fan, humidifier, light, lock, media_player, notify,
-    number, sensor, siren, switch, vacuum, valve,
+    number, select, sensor, siren, switch, text, vacuum, valve,
 )
 from .cfg import _atomic_write, unique_in_device
 from .clone import REPRODUCIBLE_DOMAINS, _plain, entity_spec
@@ -108,9 +108,11 @@ PLATFORM_SCHEMAS = {
     "media_player": media_player.MEDIA_SCHEMA,
     "notify": notify.NOTIFY_SCHEMA,
     "number": number.NUMBER_SCHEMA,
+    "select": select.SELECT_SCHEMA,
     "sensor": sensor.SENSOR_SCHEMA,
     "siren": siren.SIREN_SCHEMA,
     "switch": switch.SWITCH_SCHEMA,
+    "text": text.TEXT_SCHEMA,
     "vacuum": vacuum.VACUUM_SCHEMA,
     "valve": valve.VALVE_SCHEMA,
 }
@@ -144,6 +146,10 @@ def _entity_export(hass: HomeAssistant, row, state, persistent) -> dict:
     if persistent is not None:
         spec[CONF_PERSISTENT] = persistent
     if state is None or domain in STATELESS_DOMAINS:
+        return spec
+    if domain == "text" and attrs.get("mode") == "password":
+        # A password field's value is a secret. The file is made to be copied
+        # to another machine, so it never carries one (see clone.py's codes).
         return spec
     if state.state == STATE_UNAVAILABLE:
         spec[CONF_INITIAL_AVAILABILITY] = False

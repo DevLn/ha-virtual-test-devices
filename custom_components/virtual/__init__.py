@@ -32,7 +32,7 @@ from .const import *
 from .cfg import BlendedCfg, UpgradeCfg
 
 
-__version__ = '0.14.0-hts.4'
+__version__ = '0.14.0-hts.5'
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -69,9 +69,11 @@ VIRTUAL_PLATFORMS = [
     Platform.NOTIFY,               # PistonCore addition (somewhere for a
                                    # piston's notifications to land)
     Platform.NUMBER,
+    Platform.SELECT,               # PistonCore addition
     Platform.SENSOR,
     Platform.SIREN,                # PistonCore addition
     Platform.SWITCH,
+    Platform.TEXT,                 # PistonCore addition
     Platform.VACUUM,               # PistonCore addition
     Platform.VALVE
 ]

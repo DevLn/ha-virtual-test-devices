@@ -268,6 +268,11 @@ def test_exported_file_loads_back_under_the_same_ids(tmp_path):
     _live(hass, "camera.door", "idle", {"friendly_name": "Door Cam", "supported_features": 0})
     _live(hass, "notify.sms", "2026-10-14T10:00:00+00:00", {"friendly_name": "SMS",
                                                             "supported_features": 0})
+    _live(hass, "select.log_level", "DEBUG", {"friendly_name": "Log Level",
+                                              "options": ["INFO", "DEBUG"]},
+          entity_category="config")
+    _live(hass, "text.greeting", "hello", {"friendly_name": "Greeting", "min": 0,
+                                           "max": 20, "pattern": None, "mode": "text"})
     live_ids = {s.entity_id for s in hass.states.async_all()}
 
     response, _, _ = _export(hass)
@@ -285,6 +290,21 @@ def test_exported_file_loads_back_under_the_same_ids(tmp_path):
             PLATFORM_SCHEMAS[platform](entity)      # exactly what the platform does
     assert loaded["button.esp_restart"]["class"] == "restart"
     assert loaded["button.esp_restart"]["entity_category"] == "config"
+    assert loaded["select.log_level"]["options"] == ["INFO", "DEBUG"]
+    assert loaded["select.log_level"]["initial_value"] == "DEBUG"
+    assert loaded["text.greeting"]["initial_value"] == "hello"
+
+
+def test_a_password_text_is_exported_without_its_value(tmp_path):
+    hass = FakeHass(config_dir=tmp_path)
+    _live(hass, "text.wifi_password", "hunter2", {"friendly_name": "WiFi Password",
+                                                  "min": 0, "max": 64, "mode": "password"})
+
+    _, text, devices = _export(hass)
+
+    assert "hunter2" not in text
+    assert devices["WiFi Password"][0]["mode"] == "password"
+    assert "initial_value" not in devices["WiFi Password"][0]
 
 
 def test_an_entity_lands_in_the_same_section_of_the_device_page():

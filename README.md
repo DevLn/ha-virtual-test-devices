@@ -21,7 +21,14 @@ built for — but nothing here needs PistonCore installed.
 **More device kinds.** Upstream covers binary_sensor, sensor, switch, light,
 lock, fan, cover, valve, number and device_tracker. This fork adds
 `alarm_control_panel`, `camera`, `climate`, `media_player`, `notify`,
-`siren`, `humidifier`, `vacuum`, `button` and `event`.
+`siren`, `humidifier`, `vacuum`, `button`, `event`, `select` and `text`.
+
+`select` and `text` are the settings devices expose, such as a log level, a
+mode or a name. They are driven with Home Assistant's own `select.select_option`
+and `text.set_value`. A select's `options` is its menu; a starting option that
+is not on it falls back to the first one. A text takes `min`, `max`, `pattern`
+and `mode`; a starting or restored value outside those limits is left empty
+with a warning, because Home Assistant would refuse it.
 
 **Devices that state their real abilities.** Every platform accepts Home
 Assistant's `supported_features` plus the mode lists and limits that go with it,
@@ -256,7 +263,8 @@ Things to know:
 - **A fan's `initial_value` is ignored** by the fan platform today, so an
   exported fan starts off.
 - **It never copies lock or alarm codes.** The per-entity capture is the same
-  one `clone_device` uses.
+  one `clone_device` uses. A text entity in `password` mode is exported without
+  its value.
 - **Nothing on the live HA changes** except the file being written.
 
 To go back: remove `export_only` from the live `configuration.yaml` and
