@@ -185,6 +185,34 @@ def test_an_entry_the_platform_rejects_goes_to_the_report_not_the_file(tmp_path)
     assert "siren.bad" in text, "the report is in the file too"
 
 
+def test_exclude_devices_drops_every_entity_on_a_matching_device(tmp_path):
+    """Network integrations name unknown clients after their MAC, and a named
+    tracker can sit on such a device too. Excluding the device drops all of it."""
+    hass = FakeHass(config_dir=tmp_path)
+    mac = dr.async_get(hass).add("10:D5:61:C4:2D:7D", {("omada", "a")}, config_entry_id="omada")
+    dash = dr.async_get(hass).add("8C-84-01-3F-B4-3A", {("omada", "b")}, config_entry_id="omada")
+    renamed = dr.async_get(hass).add("AA:BB:CC:DD:EE:FF", {("omada", "c")},
+                                     config_entry_id="omada", name_by_user="Router")
+    keep = dr.async_get(hass).add("Kitchen Plug", {("shelly", "p")}, config_entry_id="shelly")
+    _live(hass, "device_tracker.boryan", "home", {"friendly_name": "Boryan"}, device=mac)
+    _live(hass, "device_tracker.10_d5_61_c4_2d_7d", "home", {}, device=mac)
+    _live(hass, "sensor.8c_84_01_3f_b4_3a_downloaded", "5", {}, device=dash)
+    _live(hass, "device_tracker.router", "home", {"friendly_name": "Router"}, device=renamed)
+    _live(hass, "switch.kitchen_plug", "on", {"friendly_name": "Kitchen Plug"}, device=keep)
+    _live(hass, "sensor.no_device", "1", {"friendly_name": "AA:BB:CC:DD:EE:00"})
+
+    response, _, devices = _export(
+        hass, exclude_devices=["??:??:??:??:??:??", "??-??-??-??-??-??"])
+
+    assert set(devices) == {"Router", "Kitchen Plug", "AA:BB:CC:DD:EE:00"}, (
+        "matched by the UI name, so a renamed device stays; an entity with no "
+        "device is not a device")
+    assert {(s["device"], s["reason"]) for s in response["skipped"]} == {
+        ("10:D5:61:C4:2D:7D", "matched exclude_devices (2 entities)"),
+        ("8C-84-01-3F-B4-3A", "matched exclude_devices (1 entities)"),
+    }
+
+
 def test_device_name_collisions_get_a_suffix_and_a_note(tmp_path):
     hass = FakeHass(config_dir=tmp_path)
     a = dr.async_get(hass).add("Plug", {("shelly", "a")}, config_entry_id="shelly")

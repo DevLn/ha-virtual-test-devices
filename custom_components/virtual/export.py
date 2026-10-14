@@ -9,6 +9,10 @@ Action: virtual.export_devices
                          hacs and virtual: the target HA has its own copies of
                          those, so exporting them would only make _2 duplicates.
   exclude_entities:      entity ids or globs (sensor.*_power) to leave out.
+  exclude_devices:       device names or globs ("??:??:??:??:??:??") whose
+                         entities are ALL left out. Matched against the name
+                         shown in the UI. Entities with no device are not
+                         affected; exclude_entities covers those.
   include_domains:       default every domain this integration can reproduce.
   persistent:            whether the test devices keep their last state when
                          the test HA restarts (on) or go back to the exported
@@ -72,6 +76,7 @@ SERVICE_EXPORT_DEVICES = "export_devices"
 CONF_FILE = "file"
 CONF_EXCLUDE_INTEGRATIONS = "exclude_integrations"
 CONF_EXCLUDE_ENTITIES = "exclude_entities"
+CONF_EXCLUDE_DEVICES = "exclude_devices"
 CONF_INCLUDE_DOMAINS = "include_domains"
 CONF_SKIP_HIDDEN = "skip_hidden"
 
@@ -83,6 +88,7 @@ EXPORT_SCHEMA = vol.Schema({
     vol.Optional(CONF_EXCLUDE_INTEGRATIONS, default=DEFAULT_EXCLUDE_INTEGRATIONS):
         vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(CONF_EXCLUDE_ENTITIES, default=[]): vol.All(cv.ensure_list, [cv.string]),
+    vol.Optional(CONF_EXCLUDE_DEVICES, default=[]): vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(CONF_INCLUDE_DOMAINS, default=sorted(REPRODUCIBLE_DOMAINS)):
         vol.All(cv.ensure_list, [cv.string]),
     vol.Optional(CONF_PERSISTENT): cv.boolean,
@@ -200,6 +206,10 @@ def _collect(hass: HomeAssistant, data: dict) -> tuple[dict, list]:
     ent_reg, dev_reg, area_reg = er.async_get(hass), dr.async_get(hass), ar.async_get(hass)
     excluded = set(data[CONF_EXCLUDE_INTEGRATIONS])
     patterns = data[CONF_EXCLUDE_ENTITIES]
+    device_patterns = data[CONF_EXCLUDE_DEVICES]
+    # A whole device out is ONE report line, not one per entity: a network
+    # integration's unknown clients run to hundreds of entities.
+    excluded_devices = Counter()
     domains = set(data[CONF_INCLUDE_DOMAINS])
     skipped = []
 
@@ -236,6 +246,11 @@ def _collect(hass: HomeAssistant, data: dict) -> tuple[dict, list]:
         if any(fnmatch.fnmatchcase(entity_id, pattern) for pattern in patterns):
             skip(entity_id, "matched exclude_entities")
             continue
+        device = dev_reg.async_get(row.device_id) if row and row.device_id else None
+        label = (device.name_by_user or device.name) if device else None
+        if label and any(fnmatch.fnmatchcase(label, p) for p in device_patterns):
+            excluded_devices[label] += 1
+            continue
 
         spec = _entity_export(hass, row, state, data.get(CONF_PERSISTENT))
         problem = _validate(spec)
@@ -243,13 +258,15 @@ def _collect(hass: HomeAssistant, data: dict) -> tuple[dict, list]:
             skip(entity_id, f"failed validation: {problem}")
             continue
 
-        device = dev_reg.async_get(row.device_id) if row and row.device_id else None
         bucket = buckets.setdefault(device.id if device else entity_id, {
-            "label": (device.name_by_user or device.name) if device else spec[CONF_NAME],
+            "label": label or spec[CONF_NAME],
             "meta": _device_meta(device, row, area_reg),
             ATTR_ENTITIES: [],
         })
         bucket[ATTR_ENTITIES].append(spec)
+
+    skipped += [{"device": label, "reason": f"matched exclude_devices ({count} entities)"}
+                for label, count in sorted(excluded_devices.items())]
 
     devices, seen = {}, {}
     for bucket in buckets.values():

@@ -215,6 +215,18 @@ empty with a warning; a select value off its menu falls back to the first
 option. A `password` text is exported without its value, the same privacy
 boundary as lock and alarm codes.
 
+## Export: `exclude_devices` (2026-10-14, 0.14.0-hts.6)
+
+Network integrations (Omada here) turn every unknown client into a device
+named after its MAC, with a tracker and a handful of statistics on it, and
+neither Omada integration can be told not to. Entity-id patterns cannot cut
+those cleanly: their names overlap with Zigbee signal sensors, a NAS and a
+wall tablet. `exclude_devices` takes device names or globs and drops every
+entity on a matching device. It matches the name shown in the UI (the user's
+rename, else the integration's), so renaming a device is how to keep one.
+Entities with no device are untouched. Each excluded device is ONE report line
+with its entity count, not one line per entity.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

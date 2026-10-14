@@ -232,6 +232,7 @@ skipped, with the reason. The report is also at the end of the file as comments.
 | `file` | `<config>/virtual_export.yaml` | where to write; inside the config folder or under `allowlist_external_dirs` |
 | `exclude_integrations` | `hassio, backup, sun, hacs, virtual` | the other HA has its own copies of these, so exporting them would only make `_2` duplicates |
 | `exclude_entities` | none | entity ids or patterns such as `sensor.*_power` |
+| `exclude_devices` | none | device names or patterns such as `??:??:??:??:??:??`; every entity on a matching device is left out. Uses the name shown in the UI. Entities with no device are not affected |
 | `include_domains` | every reproducible domain | export only these domains |
 | `persistent` | not set, which means on | on: after a restart of the test HA, the test devices keep their last state. Off: they go back to the exported state every time |
 | `skip_hidden` | `false` | leave out entities hidden in the UI |

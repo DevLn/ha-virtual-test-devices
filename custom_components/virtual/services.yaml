@@ -220,6 +220,16 @@ export_devices:
       example: '["sensor.*_power", "light.test_lamp"]'
       selector:
         object:
+    exclude_devices:
+      name: Exclude devices
+      description: >-
+        Device names or patterns whose entities are all left out, for example
+        devices a network integration names after a MAC address. Uses the
+        device name shown in the UI. Entities with no device are not affected.
+      required: false
+      example: '["??:??:??:??:??:??", "??-??-??-??-??-??"]'
+      selector:
+        object:
     include_domains:
       name: Include domains
       description: >-
