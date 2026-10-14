@@ -128,9 +128,7 @@ and ignores afterwards, exactly as it does for real devices, so moving a device
 later is done in the UI. `mac` is shown on the device page; from Home
 Assistant 2026.8 a device is matched by MAC only within its own integration,
 so a stand-in never merges with the real device. Before 2026.8 it would have,
-so there the MAC is skipped with a warning. Within one group a MAC goes to the
-first device that has it only: Home Assistant would otherwise merge every
-device with that MAC into one. Any key you leave out falls back to
+so there the MAC is skipped with a warning. Any key you leave out falls back to
 what it was before.
 
 Any entity can also take `entity_category: config` or `diagnostic`, which puts
