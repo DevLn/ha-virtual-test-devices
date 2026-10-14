@@ -179,6 +179,15 @@ refused on every real install. The tests missed it because the fake was more
 lenient than HA; it now applies HA's rule. Writing is allowed inside the config
 folder or under the allowlist.
 
+## Fix: buttons with a device class were rejected (2026-10-14, 0.14.0-hts.3)
+
+The button platform (added in upstream, jercoates) declared no `class`, so its
+closed schema rejected any button carrying one. Real restart, identify and
+update buttons all do. Export skipped every such button; `clone_device` was
+worse, writing the entry unchecked so the next reload failed the whole button
+platform for that group. Button now accepts `class` and uses it as its device
+class, like switch. It was the only platform with this gap.
+
 ## Tests (added 2026-08-01)
 
 `tests/` guards the three silent-data-loss bugs fixed in this fork — the mutation

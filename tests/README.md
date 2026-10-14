@@ -31,7 +31,7 @@ docker cp tests             ha-test:/config/tests
 docker exec ha-test python -m pytest /config/tests -q
 ```
 
-Expect `83 passed`. There is no `pytest-asyncio` dependency — async cases call
+Expect `84 passed`. There is no `pytest-asyncio` dependency — async cases call
 `asyncio.run` directly, so HA and pytest are all you need. The HA image does not
 ship pytest, so run `docker exec ha-test pip install pytest` once. On Windows
 under Git Bash, prefix the docker commands with `MSYS_NO_PATHCONV=1`, or
@@ -67,3 +67,4 @@ everything "passed"). Known-good result:
 | drop the `export_only` early return in `async_setup` | 1 |
 | change the version in `manifest.json` only | 1 |
 | drop the config-folder clause in `export._may_write` | 8 |
+| remove `class` from the button schema | 2 |

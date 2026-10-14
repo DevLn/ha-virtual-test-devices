@@ -8,6 +8,7 @@ Assistant records the press timestamp as its state; there is no on/off to restor
 
 import logging
 import voluptuous as vol
+import homeassistant.helpers.config_validation as cv
 from collections.abc import Callable
 
 from homeassistant.components.button import (
@@ -30,8 +31,12 @@ _LOGGER = logging.getLogger(__name__)
 DEPENDENCIES = [COMPONENT_DOMAIN]
 
 # Buttons are stateless; initial_value is unused but virtual_schema wants a default.
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(virtual_schema("", {}))
-BUTTON_SCHEMA = vol.Schema(virtual_schema("", {}))
+# `class` is a real button's device class (restart, identify, update). Without
+# it the closed schema rejected every cloned or exported restart button, and a
+# rejected entry failed the whole button platform for its group (2026-10-14).
+_EXTRA = {vol.Optional(CONF_CLASS): cv.string}
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(virtual_schema("", _EXTRA))
+BUTTON_SCHEMA = vol.Schema(virtual_schema("", _EXTRA))
 
 
 async def async_setup_platform(
@@ -56,6 +61,7 @@ class VirtualButton(VirtualEntity, ButtonEntity):
 
     def __init__(self, config, old_style: bool):
         super().__init__(config, PLATFORM_DOMAIN, old_style)
+        self._attr_device_class = config.get(CONF_CLASS)
         _LOGGER.info(f"VirtualButton: {self.name} created")
 
     async def async_press(self) -> None:

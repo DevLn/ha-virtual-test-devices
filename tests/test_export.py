@@ -256,6 +256,8 @@ def test_exported_file_loads_back_under_the_same_ids(tmp_path):
     _live(hass, "alarm_control_panel.home", "disarmed", {"friendly_name": "Alarm",
                                                          "supported_features": 3})
     _live(hass, "button.bell", "2026-10-14T10:00:00+00:00", {"friendly_name": "Bell"})
+    _live(hass, "button.esp_restart", "unknown", {"friendly_name": "ESP Restart",
+                                                   "device_class": "restart"})
     _live(hass, "event.remote", "2026-10-14T10:00:00+00:00", {"friendly_name": "Remote",
                                                               "event_types": ["press"]})
     _live(hass, "camera.door", "idle", {"friendly_name": "Door Cam", "supported_features": 0})
@@ -276,6 +278,16 @@ def test_exported_file_loads_back_under_the_same_ids(tmp_path):
     for platform, entities in cfg.entities.items():
         for entity in entities:
             PLATFORM_SCHEMAS[platform](entity)      # exactly what the platform does
+    assert loaded["button.esp_restart"]["class"] == "restart"
+
+
+def test_a_button_keeps_its_device_class():
+    """A restart button must come out as a restart button, not a plain one."""
+    from custom_components.virtual.button import BUTTON_SCHEMA, VirtualButton
+
+    button = VirtualButton(BUTTON_SCHEMA({"name": "Restart", "class": "restart"}), False)
+
+    assert button.device_class == "restart"
 
 
 # --- export_only -------------------------------------------------------------------
