@@ -230,10 +230,12 @@ export_devices:
       selector:
         object:
     persistent:
-      name: Persistent
+      name: Remember state after restart
       description: >-
-        If set, written on every exported entity as its persistent flag. If
-        left out, not written.
+        What the test devices do when the test Home Assistant restarts. On:
+        they keep whatever state they were last in. Off: they go back to the
+        state exported from this Home Assistant every time. Leave it out to
+        use the normal behaviour, which is On.
       required: false
       selector:
         boolean:

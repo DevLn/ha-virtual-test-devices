@@ -10,7 +10,10 @@ Action: virtual.export_devices
                          those, so exporting them would only make _2 duplicates.
   exclude_entities:      entity ids or globs (sensor.*_power) to leave out.
   include_domains:       default every domain this integration can reproduce.
-  persistent:            if given, written on every entity; if not, not written.
+  persistent:            whether the test devices keep their last state when
+                         the test HA restarts (on) or go back to the exported
+                         state every time (off). Left out: the platform's
+                         default, which is on.
   skip_hidden:           leave out entities hidden in the UI. Default false.
 
 WHAT IT IS FOR. One Home Assistant stands in for another. This runs on the LIVE

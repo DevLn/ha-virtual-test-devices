@@ -214,7 +214,7 @@ skipped, with the reason. The report is also at the end of the file as comments.
 | `exclude_integrations` | `hassio, backup, sun, hacs, virtual` | the other HA has its own copies of these, so exporting them would only make `_2` duplicates |
 | `exclude_entities` | none | entity ids or patterns such as `sensor.*_power` |
 | `include_domains` | every reproducible domain | export only these domains |
-| `persistent` | not written | if given, written on every entity |
+| `persistent` | not set, which means on | on: after a restart of the test HA, the test devices keep their last state. Off: they go back to the exported state every time |
 | `skip_hidden` | `false` | leave out entities hidden in the UI |
 
 **On the test Home Assistant** copy the file into the config folder, then add
